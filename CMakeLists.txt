@@ -19,10 +19,12 @@ add_library(CoreRPG::CoreRPG ALIAS CoreRPG)
 target_sources(
     CoreRPG
     PRIVATE
+        src/content_catalog.cpp
         src/content_id.cpp
         src/semantic_version.cpp
         src/version_requirement.cpp
         src/random.cpp
+        src/resource_kind.cpp
         src/roll_action.cpp
         src/version.cpp
         src/world_state.cpp
@@ -30,12 +32,15 @@ target_sources(
         FILE_SET HEADERS
         BASE_DIRS include
         FILES
+            include/corerpg/content_catalog.hpp
             include/corerpg/content_manifest.hpp
             include/corerpg/definition_id.hpp
             include/corerpg/entity_id.hpp
             include/corerpg/pack_dependency.hpp
             include/corerpg/pack_id.hpp
             include/corerpg/random.hpp
+            include/corerpg/resource_definition.hpp
+            include/corerpg/resource_kind.hpp
             include/corerpg/roll_action.hpp
             include/corerpg/semantic_version.hpp
             include/corerpg/version.hpp

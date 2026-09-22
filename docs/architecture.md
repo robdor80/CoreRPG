@@ -183,6 +183,23 @@ dependencias— de `display_name` y `description`, que son metadatos informativo
 Estos metadatos no forman parte de la identidad ni intervienen en decisiones de
 compatibilidad.
 
+## Catálogo de contenido en memoria
+
+`ResourceKind` identifica una clase lógica de recurso mediante la gramática
+`[a-z][a-z0-9_-]*`. Es un identificador canónico, no una ruta, una extensión ni un
+schema concreto, y nunca se deduce de `DefinitionId`.
+
+`ResourceDefinition` es el sobre mínimo e inmutable de una definición: contiene
+exclusivamente su `DefinitionId` y su `ResourceKind`, ambos poseídos por valor. Los
+payloads y schemas específicos quedan fuera de este contrato.
+
+`ContentCatalog` posee un conjunto inmutable de definiciones en memoria. La
+identidad completa debe ser única incluso si dos entradas declaran clases distintas.
+El catálogo acepta el mismo local path bajo `PackId` diferentes, normaliza el orden
+de entrada mediante el orden byte a byte de `DefinitionId` y usa ese orden para
+búsqueda binaria y recorrido determinista. No define políticas de override, merge,
+prioridad ni last-wins.
+
 La biblioteca seguirá Semantic Versioning. Antes de `1.0.0`, la API podrá
 evolucionar mientras se descubre el dominio; alcanzar `1.0.0` requerirá una API
 pública y una política de compatibilidad explícitas.
