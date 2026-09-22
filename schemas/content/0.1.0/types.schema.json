@@ -1,0 +1,74 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://robdor80.github.io/CoreRPG/schemas/content/0.1.0/types.schema.json",
+  "title": "CoreRPG Content Contract 0.1.0 Shared Types",
+  "$defs": {
+    "packId": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9-]*(?:\\.[a-z][a-z0-9-]*)+$"
+    },
+    "definitionId": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9-]*(?:\\.[a-z][a-z0-9-]*)+:[a-z0-9][a-z0-9._-]*(?:/[a-z0-9][a-z0-9._-]*)*$"
+    },
+    "resourceKind": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_-]*$"
+    },
+    "semanticVersion": {
+      "type": "string",
+      "pattern": "^(?:0|[1-9][0-9]*)\\.(?:0|[1-9][0-9]*)\\.(?:0|[1-9][0-9]*)$"
+    },
+    "resourceLocator": {
+      "type": "string",
+      "pattern": "^resources/(?:[a-z0-9][a-z0-9_-]*/)*[a-z0-9][a-z0-9_-]*\\.json$"
+    },
+    "versionRequirement": {
+      "type": "object",
+      "properties": {
+        "minimum_inclusive": {
+          "$ref": "#/$defs/semanticVersion"
+        },
+        "maximum_exclusive": {
+          "$ref": "#/$defs/semanticVersion"
+        }
+      },
+      "required": [
+        "minimum_inclusive"
+      ],
+      "additionalProperties": false
+    },
+    "packDependency": {
+      "type": "object",
+      "properties": {
+        "pack_id": {
+          "$ref": "#/$defs/packId"
+        },
+        "version_requirement": {
+          "$ref": "#/$defs/versionRequirement"
+        }
+      },
+      "required": [
+        "pack_id",
+        "version_requirement"
+      ],
+      "additionalProperties": false
+    },
+    "definitionReference": {
+      "type": "object",
+      "properties": {
+        "target": {
+          "$ref": "#/$defs/definitionId"
+        },
+        "expected_kind": {
+          "$ref": "#/$defs/resourceKind"
+        }
+      },
+      "required": [
+        "target",
+        "expected_kind"
+      ],
+      "additionalProperties": false
+    }
+  }
+}

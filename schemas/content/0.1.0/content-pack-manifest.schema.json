@@ -1,0 +1,53 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://robdor80.github.io/CoreRPG/schemas/content/0.1.0/content-pack-manifest.schema.json",
+  "title": "CoreRPG Content Pack Manifest 0.1.0",
+  "type": "object",
+  "properties": {
+    "$schema": {
+      "const": "https://robdor80.github.io/CoreRPG/schemas/content/0.1.0/content-pack-manifest.schema.json"
+    },
+    "pack_id": {
+      "$ref": "types.schema.json#/$defs/packId"
+    },
+    "pack_version": {
+      "$ref": "types.schema.json#/$defs/semanticVersion"
+    },
+    "content_contract_version": {
+      "$ref": "types.schema.json#/$defs/semanticVersion"
+    },
+    "minimum_core_version": {
+      "$ref": "types.schema.json#/$defs/semanticVersion"
+    },
+    "dependencies": {
+      "type": "array",
+      "items": {
+        "$ref": "types.schema.json#/$defs/packDependency"
+      }
+    },
+    "resources": {
+      "type": "array",
+      "items": {
+        "$ref": "types.schema.json#/$defs/resourceLocator"
+      },
+      "uniqueItems": true
+    },
+    "display_name": {
+      "type": "string"
+    },
+    "description": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "pack_id",
+    "pack_version",
+    "content_contract_version",
+    "minimum_core_version",
+    "dependencies",
+    "resources",
+    "display_name",
+    "description"
+  ],
+  "additionalProperties": false
+}
