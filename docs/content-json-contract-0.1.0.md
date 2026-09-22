@@ -85,8 +85,11 @@ Esta propiedad:
 - debe coincidir con el schema esperado para el rol y la versión del documento
   cuando está presente.
 
-El futuro loader seleccionará schemas registrados localmente. No descargará un
-schema indicado por un documento no confiable.
+La validación selecciona el schema mediante el rol explícito que proporciona el
+consumidor (`content_pack_manifest` o `resource_definition`), nunca leyendo esta
+propiedad. `$schema` es sólo contenido validable: cuando aparece, el schema raíz
+seleccionado exige mediante `const` que coincida con su `$id` canónico. No se
+descarga ni se resuelve ninguna URI indicada por un documento no confiable.
 
 ## Índice físico `resources`
 
@@ -326,9 +329,13 @@ Los `$id` utilizarán este namespace:
 https://robdor80.github.io/CoreRPG/schemas/content/0.1.0/
 ```
 
-El namespace no exige publicación web inmediata. El futuro runtime resolverá
-esos IDs mediante un registro local de schemas incorporados y no realizará
-acceso de red.
+El namespace no exige publicación web inmediata. `CoreRPGContentJson` embebe
+durante el build los tres archivos canónicos versionados de este directorio; no
+mantiene copias manuales de su contenido en C++. Un registro local y cerrado
+compila los dos schemas raíz como Draft 2020-12 y resuelve sus `$ref` únicamente
+contra esos schemas embebidos. Una URI no registrada produce un fallo de
+configuración del schema: no existe fallback de red ni búsqueda arbitraria en el
+filesystem.
 
 ## Vertical neutral futura
 

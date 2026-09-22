@@ -105,18 +105,48 @@ if(CORERPG_BUILD_CONTENT_JSON)
 
     FetchContent_MakeAvailable(jsoncons)
 
+    set(content_schema_directory "${PROJECT_SOURCE_DIR}/schemas/content/0.1.0")
+    set(content_schema_generated_directory
+        "${CMAKE_CURRENT_BINARY_DIR}/generated/corerpg/content_json"
+    )
+    set(content_schema_generated_header
+        "${content_schema_generated_directory}/embedded_content_schemas.hpp"
+    )
+
+    add_custom_command(
+        OUTPUT "${content_schema_generated_header}"
+        COMMAND
+            "${CMAKE_COMMAND}"
+            "-DOUTPUT_FILE=${content_schema_generated_header}"
+            "-DTYPES_SCHEMA=${content_schema_directory}/types.schema.json"
+            "-DMANIFEST_SCHEMA=${content_schema_directory}/content-pack-manifest.schema.json"
+            "-DRESOURCE_SCHEMA=${content_schema_directory}/resource-definition.schema.json"
+            -P "${PROJECT_SOURCE_DIR}/cmake/embed_content_schemas.cmake"
+        DEPENDS
+            cmake/embed_content_schemas.cmake
+            schemas/content/0.1.0/types.schema.json
+            schemas/content/0.1.0/content-pack-manifest.schema.json
+            schemas/content/0.1.0/resource-definition.schema.json
+        COMMENT "Embedding Content Contract 0.1.0 JSON schemas"
+        VERBATIM
+    )
+
     add_library(CoreRPGContentJson STATIC)
     add_library(CoreRPG::ContentJson ALIAS CoreRPGContentJson)
 
     target_sources(
         CoreRPGContentJson
         PRIVATE
+            "${content_schema_generated_header}"
             src/content_json_backend.cpp
+            src/content_json_document_internal.hpp
+            src/content_json_schema_validator.cpp
         PUBLIC
             FILE_SET HEADERS
             BASE_DIRS include
             FILES
                 include/corerpg/content_json/json_document_reader.hpp
+                include/corerpg/content_json/json_schema_validator.hpp
     )
 
     target_compile_features(CoreRPGContentJson PUBLIC cxx_std_20)
@@ -139,6 +169,8 @@ if(CORERPG_BUILD_CONTENT_JSON)
 
     target_include_directories(
         CoreRPGContentJson
+        PRIVATE
+            "${CMAKE_CURRENT_BINARY_DIR}/generated"
         PUBLIC
             $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include>
             $<INSTALL_INTERFACE:include>

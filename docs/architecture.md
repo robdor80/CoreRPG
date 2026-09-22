@@ -261,11 +261,20 @@ documento opaco. El límite de tamaño es una política explícita del llamador.
 documento mantiene el DOM y jsoncons como detalles privados para que capas
 posteriores puedan reutilizar el parseo sin exponer un modelo JSON genérico.
 
+Sobre ese documento opaco, `CoreRPGContentJson` aplica JSON Schema Draft 2020-12
+mediante un `SchemaRegistry` local y cerrado. El consumidor selecciona un rol
+conocido —manifest o definición de recurso—; la propiedad `$schema` del
+documento sólo se valida como contenido y nunca decide qué schema cargar. Los
+schemas se embeben durante el build directamente desde los archivos canónicos
+versionados y sus `$ref` se resuelven exclusivamente contra ese conjunto, sin
+red ni búsqueda arbitraria en el filesystem. Los schemas compilados se
+inicializan una sola vez y se reutilizan.
+
 Este target depende de `CoreRPG`, pero `CoreRPG` no enlaza ni expone su stack
 JSON. Un Host que construya `ContentPackInput` por otros medios puede utilizar
-sólo la biblioteca de dominio. La validación de schemas, la resolución de
-recursos y la conversión a tipos fuertes permanecen fuera de esta capa de
-lectura estricta.
+sólo la biblioteca de dominio. La resolución de recursos y la futura conversión
+a tipos fuertes permanecen fuera de la lectura estricta y la validación local de
+schemas.
 
 La biblioteca seguirá Semantic Versioning. Antes de `1.0.0`, la API podrá
 evolucionar mientras se descubre el dominio; alcanzar `1.0.0` requerirá una API

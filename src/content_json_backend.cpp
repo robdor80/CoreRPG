@@ -16,6 +16,8 @@
 #include <jsoncons/json_cursor.hpp>
 #include <jsoncons/json.hpp>
 
+#include "content_json_document_internal.hpp"
+
 static_assert(JSONCONS_VERSION_MAJOR == 1);
 static_assert(JSONCONS_VERSION_MINOR == 9);
 static_assert(JSONCONS_VERSION_PATCH == 0);
@@ -184,12 +186,6 @@ namespace {
 }
 
 }  // namespace
-
-struct JsonDocument::Impl final {
-    explicit Impl(jsoncons::json parsed_value) : value(std::move(parsed_value)) {}
-
-    jsoncons::json value;
-};
 
 JsonDiagnostic::JsonDiagnostic(JsonDiagnosticCode code, std::optional<std::size_t> line,
                                std::optional<std::size_t> column,

@@ -54,6 +54,7 @@ if(CORERPG_BUILD_CONTENT_JSON)
     add_executable(
         corerpg_content_json_tests
         content_json_document_reader_test.cpp
+        content_json_schema_validator_test.cpp
     )
 
     target_link_libraries(
