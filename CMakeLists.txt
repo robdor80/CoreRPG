@@ -8,7 +8,7 @@ project(
 )
 
 if(CMAKE_CONFIGURATION_TYPES AND DEFINED CMAKE_BUILD_TYPE)
-    message(VERBOSE "CMAKE_BUILD_TYPE is only used by single-config generators")
+    message(VERBOSE "CMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE} is only used by single-config generators")
 endif()
 
 include(CTest)
@@ -52,4 +52,8 @@ if(MSVC)
     target_compile_options(CoreRPG PRIVATE /W4 /permissive-)
 elseif(CMAKE_CXX_COMPILER_ID MATCHES "Clang|GNU")
     target_compile_options(CoreRPG PRIVATE -Wall -Wextra -Wpedantic)
+endif()
+
+if(BUILD_TESTING)
+    add_subdirectory(tests)
 endif()

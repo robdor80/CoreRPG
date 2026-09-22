@@ -68,8 +68,9 @@ núcleo portable.
 ## Estado actual
 
 El proyecto se encuentra en su fase de cimentación técnica. Existe un esqueleto
-mínimo de biblioteca estática C++20, pero todavía no hay sistemas RPG, contratos
-de datos, dependencias de producción ni tests implementados.
+mínimo de biblioteca estática C++20 y una infraestructura reproducible de tests,
+pero todavía no hay sistemas RPG, contratos de datos ni dependencias de
+producción implementados.
 
 ## Compilación
 
@@ -84,9 +85,15 @@ cmake --preset dev
 cmake --build --preset dev
 ```
 
-También existe el preset `release` para una build optimizada sin tests. Aunque
-`BUILD_TESTING` ya sigue la convención de CMake, el framework y los tests se
-añadirán en un incremento posterior.
+Para ejecutar los tests tras compilar:
+
+```text
+ctest --preset dev
+```
+
+El preset `dev` descarga una versión fijada de GoogleTest únicamente cuando
+`BUILD_TESTING` está habilitado. También existe el preset `release` para una
+build optimizada sin tests.
 
 Las fronteras y decisiones iniciales se describen con más detalle en
 [`docs/architecture.md`](docs/architecture.md).

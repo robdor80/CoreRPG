@@ -114,6 +114,10 @@ No se persistirán resultados dependientes de implementaciones no especificadas,
 como hashes de biblioteca, ni se asumirá que el orden del filesystem es
 estable.
 
+Las pruebas deben ser independientes entre sí: no usarán la hora real, no
+dependerán del orden de ejecución ni compartirán estado mutable global. Las
+pruebas que incorporen variación en el futuro utilizarán semillas explícitas.
+
 ## Identidad
 
 El modelo distinguirá dos categorías de identidad:
