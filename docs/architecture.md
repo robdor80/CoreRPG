@@ -212,10 +212,27 @@ tipos incompatibles. En caso contrario devuelve diagnósticos estructurados, pos
 y ordenados canónicamente. El orden original de definiciones y referencias carece de
 semántica.
 
+La unidad candidata de construcción es `ContentPackInput`, que posee un
+`ContentManifest` y sus definiciones. Cada construcción acepta como máximo una
+versión concreta de cada `PackId`, y cada `DefinitionId` debe pertenecer al pack de
+su manifest. Los manifests participan en la validación, pero no se conservan dentro
+del catálogo publicado.
+
+Las dependencias declaradas son obligatorias y directas. El pack requerido debe
+estar presente y su `pack_version` debe satisfacer el `VersionRequirement`. Las
+dependencias duplicadas y las dependencias hacia el propio pack son inválidas. Una
+referencia a otro pack requiere que el pack de origen declare directamente esa
+dependencia; una dependencia transitiva no concede visibilidad.
+
 Los ciclos y autorreferencias entre definiciones son válidos para el resolver
-genérico. Las referencias entre packs se comprueban actualmente por existencia y
-tipo; la validación de manifests, dependencias y autorización cross-pack queda
-pospuesta y no se infiere ninguna política definitiva de esta capacidad.
+genérico, pero los ciclos entre `PackDependency` invalidan la construcción. El
+orden de packs, manifests, dependencias, definiciones y referencias no tiene
+semántica y no establece load order, prioridad, override ni merge. El conjunto
+completo conserva semántica todo-o-nada.
+
+La compatibilidad completa entre CoreRPG, `content_contract_version` y
+`minimum_core_version` permanece pospuesta hasta disponer de una política central
+de versiones soportadas.
 
 La biblioteca seguirá Semantic Versioning. Antes de `1.0.0`, la API podrá
 evolucionar mientras se descubre el dominio; alcanzar `1.0.0` requerirá una API

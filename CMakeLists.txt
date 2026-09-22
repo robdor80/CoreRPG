@@ -37,6 +37,7 @@ target_sources(
             include/corerpg/content_definition_input.hpp
             include/corerpg/content_diagnostic.hpp
             include/corerpg/content_manifest.hpp
+            include/corerpg/content_pack_input.hpp
             include/corerpg/definition_reference.hpp
             include/corerpg/definition_id.hpp
             include/corerpg/entity_id.hpp

@@ -4,8 +4,8 @@
 #include <variant>
 #include <vector>
 
-#include "corerpg/content_definition_input.hpp"
 #include "corerpg/content_diagnostic.hpp"
+#include "corerpg/content_pack_input.hpp"
 #include "corerpg/resource_definition.hpp"
 
 namespace corerpg {
@@ -15,7 +15,7 @@ class CatalogBuildResult;
 class ContentCatalog final {
 public:
     [[nodiscard]] static CatalogBuildResult create(
-        std::vector<ContentDefinitionInput> definitions);
+        std::vector<ContentPackInput> packs);
 
     [[nodiscard]] std::size_t size() const noexcept;
     [[nodiscard]] bool empty() const noexcept;

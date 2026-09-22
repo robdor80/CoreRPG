@@ -14,10 +14,16 @@ using corerpg::CatalogBuildResult;
 using corerpg::ContentDefinitionInput;
 using corerpg::ContentDiagnostic;
 using corerpg::ContentDiagnosticCode;
+using corerpg::ContentManifest;
+using corerpg::ContentPackInput;
 using corerpg::DefinitionId;
 using corerpg::DefinitionReference;
+using corerpg::PackDependency;
+using corerpg::PackId;
 using corerpg::ResourceDefinition;
 using corerpg::ResourceKind;
+using corerpg::SemanticVersion;
+using corerpg::VersionRequirement;
 
 ResourceKind kind(std::string_view value) {
     return *ResourceKind::parse(value);
@@ -25,6 +31,18 @@ ResourceKind kind(std::string_view value) {
 
 DefinitionId id(std::string_view value) {
     return *DefinitionId::parse(value);
+}
+
+PackId pack_id(std::string_view value) {
+    return *PackId::parse(value);
+}
+
+SemanticVersion version(std::string_view value) {
+    return *SemanticVersion::parse(value);
+}
+
+VersionRequirement requirement(std::string_view minimum) {
+    return *VersionRequirement::create(version(minimum));
 }
 
 DefinitionReference reference(std::string_view target, std::string_view expected_kind) {
@@ -38,6 +56,25 @@ ContentDefinitionInput input(
         ResourceDefinition(id(definition_id), kind(definition_kind)), std::move(references));
 }
 
+ContentPackInput pack_input(
+    std::string_view value, std::vector<ContentDefinitionInput> definitions = {},
+    std::vector<PackDependency> dependencies = {},
+    std::string_view pack_version = "1.0.0") {
+    return ContentPackInput(
+        ContentManifest(pack_id(value), version(pack_version), version("1.0.0"),
+                        version("0.1.0"), std::move(dependencies)),
+        std::move(definitions));
+}
+
+CatalogBuildResult build(std::vector<ContentDefinitionInput> definitions) {
+    if (definitions.empty()) {
+        return corerpg::ContentCatalog::create({});
+    }
+    const auto owner = definitions.front().definition().id().pack_id();
+    return corerpg::ContentCatalog::create(
+        {pack_input(owner.value(), std::move(definitions))});
+}
+
 void expect_same_diagnostics(const CatalogBuildResult& left, const CatalogBuildResult& right) {
     ASSERT_NE(left.diagnostics(), nullptr);
     ASSERT_NE(right.diagnostics(), nullptr);
@@ -47,11 +84,22 @@ void expect_same_diagnostics(const CatalogBuildResult& left, const CatalogBuildR
         const auto& left_diagnostic = (*left.diagnostics())[index];
         const auto& right_diagnostic = (*right.diagnostics())[index];
         EXPECT_EQ(left_diagnostic.code(), right_diagnostic.code());
+        EXPECT_EQ(left_diagnostic.pack_id(), right_diagnostic.pack_id());
+        EXPECT_EQ(left_diagnostic.related_pack_id(), right_diagnostic.related_pack_id());
         EXPECT_EQ(left_diagnostic.definition_id(), right_diagnostic.definition_id());
         EXPECT_EQ(left_diagnostic.related_definition_id(),
                   right_diagnostic.related_definition_id());
         EXPECT_EQ(left_diagnostic.expected_kind(), right_diagnostic.expected_kind());
         EXPECT_EQ(left_diagnostic.actual_kind(), right_diagnostic.actual_kind());
+        ASSERT_EQ(left_diagnostic.version_requirement().has_value(),
+                  right_diagnostic.version_requirement().has_value());
+        if (left_diagnostic.version_requirement().has_value()) {
+            EXPECT_EQ(left_diagnostic.version_requirement()->minimum_inclusive(),
+                      right_diagnostic.version_requirement()->minimum_inclusive());
+            EXPECT_EQ(left_diagnostic.version_requirement()->maximum_exclusive(),
+                      right_diagnostic.version_requirement()->maximum_exclusive());
+        }
+        EXPECT_EQ(left_diagnostic.actual_version(), right_diagnostic.actual_version());
     }
 }
 
@@ -128,7 +176,7 @@ TEST(ContentCatalogTest, EmptyCatalogIsAValidExclusiveSuccess) {
 
 TEST(ContentCatalogTest, DefinitionWithoutReferencesSucceeds) {
     const auto expected_id = id("example.pack:regions/north");
-    const auto result = corerpg::ContentCatalog::create(
+    const auto result = build(
         {input("example.pack:regions/north", "region")});
 
     ASSERT_TRUE(result.succeeded());
@@ -141,8 +189,9 @@ TEST(ContentCatalogTest, DefinitionWithoutReferencesSucceeds) {
 
 TEST(ContentCatalogTest, MultipleDefinitionsAreExposedInCanonicalIdentityOrder) {
     const auto result = corerpg::ContentCatalog::create(
-        {input("zeta.pack:item", "species"), input("alpha.pack:z-last", "region"),
-         input("alpha.pack:a-first", "world-rule")});
+        {pack_input("zeta.pack", {input("zeta.pack:item", "species")}),
+         pack_input("alpha.pack", {input("alpha.pack:z-last", "region"),
+                                   input("alpha.pack:a-first", "world-rule")})});
 
     ASSERT_TRUE(result.succeeded());
     ASSERT_NE(result.catalog(), nullptr);
@@ -153,7 +202,7 @@ TEST(ContentCatalogTest, MultipleDefinitionsAreExposedInCanonicalIdentityOrder) 
 }
 
 TEST(ContentCatalogTest, LookupOfAnAbsentIdentityReturnsNull) {
-    const auto result = corerpg::ContentCatalog::create(
+    const auto result = build(
         {input("example.pack:present", "region")});
 
     ASSERT_TRUE(result.succeeded());
@@ -164,7 +213,7 @@ TEST(ContentCatalogTest, LookupOfAnAbsentIdentityReturnsNull) {
 }
 
 TEST(ContentCatalogTest, RejectsDuplicateIdentityWithTheSameKind) {
-    const auto result = corerpg::ContentCatalog::create(
+    const auto result = build(
         {input("example.pack:duplicate", "region"),
          input("example.pack:duplicate", "region")});
 
@@ -174,7 +223,8 @@ TEST(ContentCatalogTest, RejectsDuplicateIdentityWithTheSameKind) {
     ASSERT_EQ(result.diagnostics()->size(), 1U);
     EXPECT_EQ(result.diagnostics()->front().code(),
               ContentDiagnosticCode::duplicate_definition);
-    EXPECT_EQ(result.diagnostics()->front().definition_id().value(),
+    ASSERT_TRUE(result.diagnostics()->front().definition_id().has_value());
+    EXPECT_EQ(result.diagnostics()->front().definition_id()->value(),
               "example.pack:duplicate");
     EXPECT_FALSE(result.diagnostics()->front().related_definition_id().has_value());
     EXPECT_FALSE(result.diagnostics()->front().expected_kind().has_value());
@@ -182,7 +232,7 @@ TEST(ContentCatalogTest, RejectsDuplicateIdentityWithTheSameKind) {
 }
 
 TEST(ContentCatalogTest, RejectsDuplicateIdentityEvenWhenKindsDiffer) {
-    const auto result = corerpg::ContentCatalog::create(
+    const auto result = build(
         {input("example.pack:duplicate", "region"),
          input("example.pack:duplicate", "species")});
 
@@ -195,27 +245,27 @@ TEST(ContentCatalogTest, RejectsDuplicateIdentityEvenWhenKindsDiffer) {
 
 TEST(ContentCatalogTest, ReportsEveryDuplicateIdentityInCanonicalOrder) {
     const auto result = corerpg::ContentCatalog::create(
-        {input("zeta.pack:duplicate", "kind-a"),
-         input("alpha.pack:duplicate", "kind-b"),
-         input("zeta.pack:duplicate", "kind-c"),
-         input("alpha.pack:duplicate", "kind-d"),
-         input("zeta.pack:duplicate", "kind-e")});
+        {pack_input("zeta.pack", {input("zeta.pack:duplicate", "kind-a"),
+                                  input("zeta.pack:duplicate", "kind-c"),
+                                  input("zeta.pack:duplicate", "kind-e")}),
+         pack_input("alpha.pack", {input("alpha.pack:duplicate", "kind-b"),
+                                   input("alpha.pack:duplicate", "kind-d")})});
 
     ASSERT_FALSE(result.succeeded());
     ASSERT_NE(result.diagnostics(), nullptr);
     ASSERT_EQ(result.diagnostics()->size(), 2U);
     EXPECT_EQ((*result.diagnostics())[0].code(),
               ContentDiagnosticCode::duplicate_definition);
-    EXPECT_EQ((*result.diagnostics())[0].definition_id().value(),
+    EXPECT_EQ((*result.diagnostics())[0].definition_id()->value(),
               "alpha.pack:duplicate");
     EXPECT_EQ((*result.diagnostics())[1].code(),
               ContentDiagnosticCode::duplicate_definition);
-    EXPECT_EQ((*result.diagnostics())[1].definition_id().value(),
+    EXPECT_EQ((*result.diagnostics())[1].definition_id()->value(),
               "zeta.pack:duplicate");
 }
 
 TEST(ContentCatalogTest, DuplicatePhaseDoesNotAttemptReferenceResolution) {
-    const auto result = corerpg::ContentCatalog::create(
+    const auto result = build(
         {input("example.pack:duplicate", "source-kind",
                {reference("example.pack:missing", "target-kind")}),
          input("example.pack:duplicate", "other-kind")});
@@ -231,8 +281,8 @@ TEST(ContentCatalogTest, SameLocalPathCanExistUnderDifferentPacks) {
     const auto first = id("first.pack:shared/path");
     const auto second = id("second.pack:shared/path");
     const auto result = corerpg::ContentCatalog::create(
-        {input("first.pack:shared/path", "region"),
-         input("second.pack:shared/path", "region")});
+        {pack_input("first.pack", {input("first.pack:shared/path", "region")}),
+         pack_input("second.pack", {input("second.pack:shared/path", "region")})});
 
     ASSERT_TRUE(result.succeeded());
     ASSERT_NE(result.catalog(), nullptr);
@@ -243,9 +293,11 @@ TEST(ContentCatalogTest, SameLocalPathCanExistUnderDifferentPacks) {
 
 TEST(ContentCatalogTest, InputOrderDoesNotAffectCatalogOrderOrLookup) {
     const auto forward = corerpg::ContentCatalog::create(
-        {input("alpha.pack:item", "region"), input("zeta.pack:item", "species")});
+        {pack_input("alpha.pack", {input("alpha.pack:item", "region")}),
+         pack_input("zeta.pack", {input("zeta.pack:item", "species")})});
     const auto reverse = corerpg::ContentCatalog::create(
-        {input("zeta.pack:item", "species"), input("alpha.pack:item", "region")});
+        {pack_input("zeta.pack", {input("zeta.pack:item", "species")}),
+         pack_input("alpha.pack", {input("alpha.pack:item", "region")})});
 
     ASSERT_TRUE(forward.succeeded());
     ASSERT_TRUE(reverse.succeeded());
@@ -264,7 +316,7 @@ TEST(ContentCatalogTest, InputOrderDoesNotAffectCatalogOrderOrLookup) {
 TEST(ContentCatalogTest, ExistingReferenceWithExpectedKindSucceeds) {
     const auto source_id = id("example.pack:source");
     const auto target_id = id("example.pack:target");
-    const auto result = corerpg::ContentCatalog::create(
+    const auto result = build(
         {input("example.pack:source", "source-kind",
                {reference("example.pack:target", "target-kind")}),
          input("example.pack:target", "target-kind")});
@@ -277,7 +329,7 @@ TEST(ContentCatalogTest, ExistingReferenceWithExpectedKindSucceeds) {
 }
 
 TEST(ContentCatalogTest, MissingTargetProducesStructuredExclusiveFailure) {
-    const auto result = corerpg::ContentCatalog::create(
+    const auto result = build(
         {input("example.pack:source", "source-kind",
                {reference("example.pack:missing", "target-kind")})});
 
@@ -287,7 +339,8 @@ TEST(ContentCatalogTest, MissingTargetProducesStructuredExclusiveFailure) {
     ASSERT_EQ(result.diagnostics()->size(), 1U);
     const auto& diagnostic = result.diagnostics()->front();
     EXPECT_EQ(diagnostic.code(), ContentDiagnosticCode::reference_target_not_found);
-    EXPECT_EQ(diagnostic.definition_id().value(), "example.pack:source");
+    ASSERT_TRUE(diagnostic.definition_id().has_value());
+    EXPECT_EQ(diagnostic.definition_id()->value(), "example.pack:source");
     ASSERT_TRUE(diagnostic.related_definition_id().has_value());
     EXPECT_EQ(diagnostic.related_definition_id()->value(), "example.pack:missing");
     ASSERT_TRUE(diagnostic.expected_kind().has_value());
@@ -296,7 +349,7 @@ TEST(ContentCatalogTest, MissingTargetProducesStructuredExclusiveFailure) {
 }
 
 TEST(ContentCatalogTest, KindMismatchPreservesSourceTargetExpectedAndActual) {
-    const auto result = corerpg::ContentCatalog::create(
+    const auto result = build(
         {input("example.pack:source", "source-kind",
                {reference("example.pack:target", "expected-kind")}),
          input("example.pack:target", "actual-kind")});
@@ -306,7 +359,8 @@ TEST(ContentCatalogTest, KindMismatchPreservesSourceTargetExpectedAndActual) {
     ASSERT_EQ(result.diagnostics()->size(), 1U);
     const auto& diagnostic = result.diagnostics()->front();
     EXPECT_EQ(diagnostic.code(), ContentDiagnosticCode::reference_kind_mismatch);
-    EXPECT_EQ(diagnostic.definition_id().value(), "example.pack:source");
+    ASSERT_TRUE(diagnostic.definition_id().has_value());
+    EXPECT_EQ(diagnostic.definition_id()->value(), "example.pack:source");
     ASSERT_TRUE(diagnostic.related_definition_id().has_value());
     EXPECT_EQ(diagnostic.related_definition_id()->value(), "example.pack:target");
     ASSERT_TRUE(diagnostic.expected_kind().has_value());
@@ -317,50 +371,50 @@ TEST(ContentCatalogTest, KindMismatchPreservesSourceTargetExpectedAndActual) {
 
 TEST(ContentCatalogTest, MultipleReferenceErrorsUseCanonicalOrder) {
     const auto result = corerpg::ContentCatalog::create(
-        {input("beta.pack:source", "source-kind",
-               {reference("beta.pack:missing", "target-kind")}),
-         input("alpha.pack:target", "actual-kind"),
-         input("alpha.pack:source", "source-kind",
-               {reference("alpha.pack:target", "expected-kind"),
-                reference("alpha.pack:missing", "target-kind")})});
+        {pack_input("beta.pack", {input("beta.pack:source", "source-kind",
+                                        {reference("beta.pack:missing", "target-kind")})}),
+         pack_input("alpha.pack", {input("alpha.pack:target", "actual-kind"),
+                                    input("alpha.pack:source", "source-kind",
+                                          {reference("alpha.pack:target", "expected-kind"),
+                                           reference("alpha.pack:missing", "target-kind")})})});
 
     ASSERT_FALSE(result.succeeded());
     ASSERT_NE(result.diagnostics(), nullptr);
     ASSERT_EQ(result.diagnostics()->size(), 3U);
-    EXPECT_EQ((*result.diagnostics())[0].definition_id().value(), "alpha.pack:source");
+    EXPECT_EQ((*result.diagnostics())[0].definition_id()->value(), "alpha.pack:source");
     EXPECT_EQ((*result.diagnostics())[0].related_definition_id()->value(),
               "alpha.pack:missing");
     EXPECT_EQ((*result.diagnostics())[0].code(),
               ContentDiagnosticCode::reference_target_not_found);
-    EXPECT_EQ((*result.diagnostics())[1].definition_id().value(), "alpha.pack:source");
+    EXPECT_EQ((*result.diagnostics())[1].definition_id()->value(), "alpha.pack:source");
     EXPECT_EQ((*result.diagnostics())[1].related_definition_id()->value(),
               "alpha.pack:target");
     EXPECT_EQ((*result.diagnostics())[1].code(),
               ContentDiagnosticCode::reference_kind_mismatch);
-    EXPECT_EQ((*result.diagnostics())[2].definition_id().value(), "beta.pack:source");
+    EXPECT_EQ((*result.diagnostics())[2].definition_id()->value(), "beta.pack:source");
 }
 
 TEST(ContentCatalogTest, PermutingInputsDoesNotChangeDiagnostics) {
     const auto forward = corerpg::ContentCatalog::create(
-        {input("alpha.pack:source", "source-kind",
-               {reference("alpha.pack:missing", "target-kind")}),
-         input("beta.pack:source", "source-kind",
-               {reference("beta.pack:missing", "target-kind")})});
+        {pack_input("alpha.pack", {input("alpha.pack:source", "source-kind",
+                                         {reference("alpha.pack:missing", "target-kind")})}),
+         pack_input("beta.pack", {input("beta.pack:source", "source-kind",
+                                        {reference("beta.pack:missing", "target-kind")})})});
     const auto reverse = corerpg::ContentCatalog::create(
-        {input("beta.pack:source", "source-kind",
-               {reference("beta.pack:missing", "target-kind")}),
-         input("alpha.pack:source", "source-kind",
-               {reference("alpha.pack:missing", "target-kind")})});
+        {pack_input("beta.pack", {input("beta.pack:source", "source-kind",
+                                        {reference("beta.pack:missing", "target-kind")})}),
+         pack_input("alpha.pack", {input("alpha.pack:source", "source-kind",
+                                         {reference("alpha.pack:missing", "target-kind")})})});
 
     expect_same_diagnostics(forward, reverse);
 }
 
 TEST(ContentCatalogTest, PermutingReferencesDoesNotChangeDiagnostics) {
-    const auto forward = corerpg::ContentCatalog::create(
+    const auto forward = build(
         {input("example.pack:source", "source-kind",
                {reference("example.pack:a-missing", "kind-a"),
                 reference("example.pack:z-missing", "kind-z")})});
-    const auto reverse = corerpg::ContentCatalog::create(
+    const auto reverse = build(
         {input("example.pack:source", "source-kind",
                {reference("example.pack:z-missing", "kind-z"),
                 reference("example.pack:a-missing", "kind-a")})});
@@ -370,7 +424,7 @@ TEST(ContentCatalogTest, PermutingReferencesDoesNotChangeDiagnostics) {
 
 TEST(ContentCatalogTest, RepeatedIdenticalReferencesProduceOneDiagnostic) {
     const auto repeated = reference("example.pack:missing", "target-kind");
-    const auto result = corerpg::ContentCatalog::create(
+    const auto result = build(
         {input("example.pack:source", "source-kind", {repeated, repeated})});
 
     ASSERT_FALSE(result.succeeded());
@@ -378,11 +432,13 @@ TEST(ContentCatalogTest, RepeatedIdenticalReferencesProduceOneDiagnostic) {
     EXPECT_EQ(result.diagnostics()->size(), 1U);
 }
 
-TEST(ContentCatalogTest, CrossPackReferenceResolvesWithoutDependencyPolicy) {
+TEST(ContentCatalogTest, CrossPackReferenceResolvesWithDirectDependency) {
     const auto result = corerpg::ContentCatalog::create(
-        {input("first.pack:source", "source-kind",
-               {reference("second.pack:target", "target-kind")}),
-         input("second.pack:target", "target-kind")});
+        {pack_input("first.pack",
+                    {input("first.pack:source", "source-kind",
+                           {reference("second.pack:target", "target-kind")})},
+                    {PackDependency(pack_id("second.pack"), requirement("1.0.0"))}),
+         pack_input("second.pack", {input("second.pack:target", "target-kind")})});
 
     ASSERT_TRUE(result.succeeded());
     ASSERT_NE(result.catalog(), nullptr);
@@ -391,7 +447,7 @@ TEST(ContentCatalogTest, CrossPackReferenceResolvesWithoutDependencyPolicy) {
 }
 
 TEST(ContentCatalogTest, MutualReferenceCycleIsValid) {
-    const auto result = corerpg::ContentCatalog::create(
+    const auto result = build(
         {input("example.pack:a", "node",
                {reference("example.pack:b", "node")}),
          input("example.pack:b", "node",
@@ -402,7 +458,7 @@ TEST(ContentCatalogTest, MutualReferenceCycleIsValid) {
 }
 
 TEST(ContentCatalogTest, SelfReferenceIsValid) {
-    const auto result = corerpg::ContentCatalog::create(
+    const auto result = build(
         {input("example.pack:self", "node",
                {reference("example.pack:self", "node")})});
 
@@ -411,12 +467,12 @@ TEST(ContentCatalogTest, SelfReferenceIsValid) {
 }
 
 TEST(ContentCatalogTest, FailedCandidateDoesNotModifyExistingCatalog) {
-    const auto valid = corerpg::ContentCatalog::create(
+    const auto valid = build(
         {input("active.pack:definition", "stable-kind")});
     ASSERT_TRUE(valid.succeeded());
     ASSERT_NE(valid.catalog(), nullptr);
 
-    const auto invalid = corerpg::ContentCatalog::create(
+    const auto invalid = build(
         {input("candidate.pack:source", "source-kind",
                {reference("candidate.pack:missing", "target-kind")})});
 
@@ -427,23 +483,23 @@ TEST(ContentCatalogTest, FailedCandidateDoesNotModifyExistingCatalog) {
 
 TEST(ContentCatalogTest, CreatingFromAnLvalueDoesNotModifyInputs) {
     std::vector<ContentDefinitionInput> definitions;
-    definitions.push_back(input("zeta.pack:target", "target-kind"));
+    definitions.push_back(input("example.pack:z-target", "target-kind"));
     definitions.push_back(input(
         "example.pack:source", "source-kind",
-        {reference("zeta.pack:target", "target-kind"),
-         reference("alpha.pack:target", "target-kind")}));
-    definitions.push_back(input("alpha.pack:target", "target-kind"));
+        {reference("example.pack:z-target", "target-kind"),
+         reference("example.pack:a-target", "target-kind")}));
+    definitions.push_back(input("example.pack:a-target", "target-kind"));
 
-    const auto result = corerpg::ContentCatalog::create(definitions);
+    const auto result = build(definitions);
 
     ASSERT_TRUE(result.succeeded());
     ASSERT_EQ(definitions.size(), 3U);
-    EXPECT_EQ(definitions[0].definition().id().value(), "zeta.pack:target");
+    EXPECT_EQ(definitions[0].definition().id().value(), "example.pack:z-target");
     EXPECT_EQ(definitions[1].definition().id().value(), "example.pack:source");
     ASSERT_EQ(definitions[1].references().size(), 2U);
-    EXPECT_EQ(definitions[1].references()[0].target().value(), "zeta.pack:target");
-    EXPECT_EQ(definitions[1].references()[1].target().value(), "alpha.pack:target");
-    EXPECT_EQ(definitions[2].definition().id().value(), "alpha.pack:target");
+    EXPECT_EQ(definitions[1].references()[0].target().value(), "example.pack:z-target");
+    EXPECT_EQ(definitions[1].references()[1].target().value(), "example.pack:a-target");
+    EXPECT_EQ(definitions[2].definition().id().value(), "example.pack:a-target");
 }
 
 }  // namespace
