@@ -20,6 +20,8 @@ target_sources(
     CoreRPG
     PRIVATE
         src/content_id.cpp
+        src/semantic_version.cpp
+        src/version_requirement.cpp
         src/random.cpp
         src/roll_action.cpp
         src/version.cpp
@@ -28,12 +30,16 @@ target_sources(
         FILE_SET HEADERS
         BASE_DIRS include
         FILES
+            include/corerpg/content_manifest.hpp
             include/corerpg/definition_id.hpp
             include/corerpg/entity_id.hpp
+            include/corerpg/pack_dependency.hpp
             include/corerpg/pack_id.hpp
             include/corerpg/random.hpp
             include/corerpg/roll_action.hpp
+            include/corerpg/semantic_version.hpp
             include/corerpg/version.hpp
+            include/corerpg/version_requirement.hpp
             include/corerpg/world_state.hpp
 )
 

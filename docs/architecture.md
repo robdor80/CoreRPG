@@ -168,6 +168,21 @@ Una actualización del Core no implica necesariamente cambiar los otros tres
 ejes. Los mecanismos concretos de compatibilidad y migración se definirán al
 implementar cada contrato.
 
+Las versiones usan inicialmente el subconjunto estable `MAJOR.MINOR.PATCH`, con
+tres enteros de 32 bits sin signo y sin prerelease ni build metadata. Los
+requisitos entre packs son rangos estructurados con un mínimo inclusivo y un
+máximo exclusivo opcional; un máximo menor o igual que el mínimo es inválido.
+
+`PackId` identifica el linaje y no contiene la versión. `pack_version` identifica
+una publicación de ese linaje, mientras `content_contract_version` identifica
+el contrato lógico que interpreta sus datos y `minimum_core_version` expresa
+una restricción adicional sobre CoreRPG. Ninguna sustituye a las demás.
+
+El manifiesto lógico separa campos normativos —identidad, versiones y
+dependencias— de `display_name` y `description`, que son metadatos informativos.
+Estos metadatos no forman parte de la identidad ni intervienen en decisiones de
+compatibilidad.
+
 La biblioteca seguirá Semantic Versioning. Antes de `1.0.0`, la API podrá
 evolucionar mientras se descubre el dominio; alcanzar `1.0.0` requerirá una API
 pública y una política de compatibilidad explícitas.
