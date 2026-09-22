@@ -133,15 +133,22 @@ modifica estado persistente, por lo que tampoco cambia la revisión del mundo.
 
 ## Identidad
 
-El modelo distinguirá dos categorías de identidad:
+El modelo distingue tres tipos de identidad no intercambiables:
 
-- **IDs de definiciones:** identifican recursos estables declarados por Content
-  Packs y deben evitar colisiones entre packs.
-- **IDs de entidades:** identifican instancias vivas dentro de una campaña y
-  forman parte de su estado persistente.
+- `EntityId` identifica una entidad viva dentro de una campaña.
+- `PackId` identifica de forma estable un linaje de Content Pack.
+- `DefinitionId` identifica una definición lógica aportada por un Content Pack.
 
-Aunque en el futuro puedan compartir alguna representación técnica, son
-conceptos diferentes y no serán intercambiables en la API.
+Un `PackId` consta de al menos dos segmentos ASCII minúsculos separados por
+`.`. Cada segmento sigue `[a-z][a-z0-9-]*`. Un `DefinitionId` combina el
+`PackId`, el separador `:` y uno o más segmentos locales separados por `/`; cada
+segmento local sigue `[a-z0-9][a-z0-9._-]*`. Los segmentos `.` y `..` no son
+válidos.
+
+Estas identidades son claves lógicas, no rutas de filesystem. No contienen
+versiones, no dependen de locale y se comparan byte a byte en su representación
+canónica. Un ID publicado no debe reutilizarse después para otro significado
+semántico, aunque cambien nombres visibles o versiones del pack.
 
 Dentro de cada `WorldState`, los IDs de entidades vivas se asignan desde `1` de
 forma monotónica y determinista. El valor `0` representa un ID inválido y los

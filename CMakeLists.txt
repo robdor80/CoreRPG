@@ -19,6 +19,7 @@ add_library(CoreRPG::CoreRPG ALIAS CoreRPG)
 target_sources(
     CoreRPG
     PRIVATE
+        src/content_id.cpp
         src/random.cpp
         src/roll_action.cpp
         src/version.cpp
@@ -27,7 +28,9 @@ target_sources(
         FILE_SET HEADERS
         BASE_DIRS include
         FILES
+            include/corerpg/definition_id.hpp
             include/corerpg/entity_id.hpp
+            include/corerpg/pack_id.hpp
             include/corerpg/random.hpp
             include/corerpg/roll_action.hpp
             include/corerpg/version.hpp
