@@ -254,6 +254,14 @@ Schema Draft 2020-12. Su formato de manifest, índice explícito de recursos,
 localizadores, documentos de definición y fronteras de validación se especifica
 en [`content-json-contract-0.1.0.md`](content-json-contract-0.1.0.md).
 
+La futura lectura de esa representación pertenece a la biblioteca opcional
+`CoreRPGContentJson`. Este target depende de `CoreRPG` y mantiene su stack JSON
+como detalle privado. `CoreRPG` no enlaza ni expone esa dependencia, por lo que
+un Host que construya `ContentPackInput` por otros medios puede utilizar sólo la
+biblioteca de dominio. El target existe inicialmente como frontera de build; la
+lectura estricta, la validación de schemas y la conversión a tipos fuertes se
+incorporarán en incrementos posteriores.
+
 La biblioteca seguirá Semantic Versioning. Antes de `1.0.0`, la API podrá
 evolucionar mientras se descubre el dominio; alcanzar `1.0.0` requerirá una API
 pública y una política de compatibilidad explícitas.
@@ -262,9 +270,11 @@ pública y una política de compatibilidad explícitas.
 
 - C++20.
 - CMake como sistema de build.
-- Una biblioteca estática inicialmente, sin promesa de ABI estable.
+- `CoreRPG` como biblioteca estática, sin promesa de ABI estable, y una capa
+  opcional separada cuando sea necesario aislar dependencias de integración.
 - Namespace raíz `corerpg`.
-- Cero dependencias externas para el código de producción al comenzar.
+- Cero dependencias externas en `CoreRPG`; las integraciones opcionales aíslan
+  sus dependencias en targets separados.
 - GoogleTest y CTest cuando se introduzca el primer conjunto de tests.
 - `clang-format` y adopción progresiva de `clang-tidy`.
 - Compatibilidad prevista con MSVC, Clang y GCC.

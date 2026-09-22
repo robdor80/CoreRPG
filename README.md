@@ -98,8 +98,15 @@ ctest --preset dev
 ```
 
 El preset `dev` descarga una versión fijada de GoogleTest únicamente cuando
-`BUILD_TESTING` está habilitado. También existe el preset `release` para una
-build optimizada sin tests.
+`BUILD_TESTING` está habilitado. Los presets internos `dev` y `release` también
+activan la biblioteca opcional `CoreRPGContentJson`, que obtiene una versión
+fijada de jsoncons durante la configuración. Para consumidores externos esta
+integración permanece desactivada por defecto, de modo que usar únicamente
+`CoreRPG` no obtiene ni enlaza el stack JSON.
+
+También existe el preset `release` para una build optimizada sin tests. Las
+dependencias de terceros se registran en
+[`docs/third-party-dependencies.md`](docs/third-party-dependencies.md).
 
 Las fronteras y decisiones iniciales se describen con más detalle en
 [`docs/architecture.md`](docs/architecture.md).

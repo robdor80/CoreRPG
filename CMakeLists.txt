@@ -13,6 +13,12 @@ endif()
 
 include(CTest)
 
+option(
+    CORERPG_BUILD_CONTENT_JSON
+    "Build the optional CoreRPG JSON content integration library"
+    OFF
+)
+
 add_library(CoreRPG STATIC)
 add_library(CoreRPG::CoreRPG ALIAS CoreRPG)
 
@@ -81,6 +87,56 @@ if(MSVC)
     target_compile_options(CoreRPG PRIVATE /W4 /permissive-)
 elseif(CMAKE_CXX_COMPILER_ID MATCHES "Clang|GNU")
     target_compile_options(CoreRPG PRIVATE -Wall -Wextra -Wpedantic)
+endif()
+
+if(CORERPG_BUILD_CONTENT_JSON)
+    include(FetchContent)
+
+    set(JSONCONS_BUILD_TESTS OFF CACHE BOOL "Build the jsoncons test suite" FORCE)
+
+    FetchContent_Declare(
+        jsoncons
+        SYSTEM
+        GIT_REPOSITORY https://github.com/danielaparker/jsoncons.git
+        # jsoncons v1.9.0
+        GIT_TAG bcb44594c50c495ee1e690602cdd71455942ad0e
+        GIT_PROGRESS TRUE
+    )
+
+    FetchContent_MakeAvailable(jsoncons)
+
+    add_library(CoreRPGContentJson STATIC)
+    add_library(CoreRPG::ContentJson ALIAS CoreRPGContentJson)
+
+    target_sources(
+        CoreRPGContentJson
+        PRIVATE
+            src/content_json_backend.cpp
+    )
+
+    target_compile_features(CoreRPGContentJson PRIVATE cxx_std_20)
+
+    set_target_properties(
+        CoreRPGContentJson
+        PROPERTIES
+            CXX_STANDARD 20
+            CXX_STANDARD_REQUIRED YES
+            CXX_EXTENSIONS NO
+    )
+
+    target_link_libraries(
+        CoreRPGContentJson
+        PUBLIC
+            CoreRPG::CoreRPG
+        PRIVATE
+            jsoncons
+    )
+
+    if(MSVC)
+        target_compile_options(CoreRPGContentJson PRIVATE /W4 /permissive-)
+    elseif(CMAKE_CXX_COMPILER_ID MATCHES "Clang|GNU")
+        target_compile_options(CoreRPGContentJson PRIVATE -Wall -Wextra -Wpedantic)
+    endif()
 endif()
 
 if(BUILD_TESTING)

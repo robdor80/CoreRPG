@@ -14,7 +14,8 @@
       "cacheVariables": {
         "BUILD_TESTING": true,
         "CMAKE_BUILD_TYPE": "Debug",
-        "CMAKE_EXPORT_COMPILE_COMMANDS": true
+        "CMAKE_EXPORT_COMPILE_COMMANDS": true,
+        "CORERPG_BUILD_CONTENT_JSON": true
       }
     },
     {
@@ -25,7 +26,8 @@
       "cacheVariables": {
         "BUILD_TESTING": false,
         "CMAKE_BUILD_TYPE": "Release",
-        "CMAKE_EXPORT_COMPILE_COMMANDS": true
+        "CMAKE_EXPORT_COMPILE_COMMANDS": true,
+        "CORERPG_BUILD_CONTENT_JSON": true
       }
     }
   ],
