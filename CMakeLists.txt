@@ -20,10 +20,14 @@ target_sources(
     CoreRPG
     PRIVATE
         src/version.cpp
+        src/world_state.cpp
     PUBLIC
         FILE_SET HEADERS
         BASE_DIRS include
-        FILES include/corerpg/version.hpp
+        FILES
+            include/corerpg/entity_id.hpp
+            include/corerpg/version.hpp
+            include/corerpg/world_state.hpp
 )
 
 target_compile_features(CoreRPG PUBLIC cxx_std_20)

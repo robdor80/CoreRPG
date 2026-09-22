@@ -67,10 +67,10 @@ núcleo portable.
 
 ## Estado actual
 
-El proyecto se encuentra en su fase de cimentación técnica. Existe un esqueleto
-mínimo de biblioteca estática C++20 y una infraestructura reproducible de tests,
-pero todavía no hay sistemas RPG, contratos de datos ni dependencias de
-producción implementados.
+El proyecto se encuentra en su fase de cimentación técnica. Incluye identidad
+de entidades, un estado del mundo mínimo y una infraestructura reproducible de
+tests, pero todavía no hay sistemas de gameplay, contratos de datos ni
+dependencias de producción implementados.
 
 ## Compilación
 

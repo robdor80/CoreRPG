@@ -13,17 +13,21 @@ FetchContent_Declare(
 
 FetchContent_MakeAvailable(googletest)
 
-add_executable(corerpg_smoke_test smoke_test.cpp)
+add_executable(
+    corerpg_tests
+    smoke_test.cpp
+    world_state_test.cpp
+)
 
 target_link_libraries(
-    corerpg_smoke_test
+    corerpg_tests
     PRIVATE
         CoreRPG::CoreRPG
         GTest::gtest_main
 )
 
 set_target_properties(
-    corerpg_smoke_test
+    corerpg_tests
     PROPERTIES
         CXX_STANDARD 20
         CXX_STANDARD_REQUIRED YES
@@ -31,10 +35,10 @@ set_target_properties(
 )
 
 if(MSVC)
-    target_compile_options(corerpg_smoke_test PRIVATE /W4 /permissive-)
+    target_compile_options(corerpg_tests PRIVATE /W4 /permissive-)
 elseif(CMAKE_CXX_COMPILER_ID MATCHES "Clang|GNU")
-    target_compile_options(corerpg_smoke_test PRIVATE -Wall -Wextra -Wpedantic)
+    target_compile_options(corerpg_tests PRIVATE -Wall -Wextra -Wpedantic)
 endif()
 
 include(GoogleTest)
-gtest_discover_tests(corerpg_smoke_test)
+gtest_discover_tests(corerpg_tests)

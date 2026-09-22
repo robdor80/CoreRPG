@@ -130,6 +130,10 @@ El modelo distinguirá dos categorías de identidad:
 Aunque en el futuro puedan compartir alguna representación técnica, son
 conceptos diferentes y no serán intercambiables en la API.
 
+Dentro de cada `WorldState`, los IDs de entidades vivas se asignan desde `1` de
+forma monotónica y determinista. El valor `0` representa un ID inválido y los
+IDs emitidos no se reutilizan durante la vida de ese estado del mundo.
+
 ## Versiones independientes
 
 CoreRPG mantendrá separados cuatro ejes de evolución:
