@@ -1,0 +1,22 @@
+---
+Checks: >
+  -*,
+  clang-analyzer-*,
+  bugprone-assert-side-effect,
+  bugprone-branch-clone,
+  bugprone-dangling-handle,
+  bugprone-infinite-loop,
+  bugprone-macro-parentheses,
+  bugprone-sizeof-expression,
+  modernize-use-nullptr,
+  modernize-use-override,
+  performance-for-range-copy,
+  performance-move-const-arg,
+  performance-unnecessary-copy-initialization,
+  readability-container-size-empty,
+  readability-duplicate-include,
+  readability-misleading-indentation
+WarningsAsErrors: ''
+HeaderFilterRegex: '.*[\\/](include[\\/]corerpg|src)[\\/].*'
+FormatStyle: file
+...

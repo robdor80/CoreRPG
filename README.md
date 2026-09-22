@@ -67,9 +67,26 @@ núcleo portable.
 
 ## Estado actual
 
-El proyecto se encuentra en su fase de cimentación arquitectónica. Por ahora no
-existen código de producción, sistema de build, dependencias, tests ni contratos
-de datos implementados.
+El proyecto se encuentra en su fase de cimentación técnica. Existe un esqueleto
+mínimo de biblioteca estática C++20, pero todavía no hay sistemas RPG, contratos
+de datos, dependencias de producción ni tests implementados.
+
+## Compilación
+
+Se necesita CMake 3.25 o posterior y un compilador compatible con C++20. Los
+presets no fijan un generador ni contienen rutas locales, por lo que CMake puede
+seleccionar el toolchain disponible en cada equipo.
+
+Para configurar y compilar una build de desarrollo:
+
+```text
+cmake --preset dev
+cmake --build --preset dev
+```
+
+También existe el preset `release` para una build optimizada sin tests. Aunque
+`BUILD_TESTING` ya sigue la convención de CMake, el framework y los tests se
+añadirán en un incremento posterior.
 
 Las fronteras y decisiones iniciales se describen con más detalle en
 [`docs/architecture.md`](docs/architecture.md).
