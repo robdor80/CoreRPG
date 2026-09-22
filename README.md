@@ -69,8 +69,14 @@ núcleo portable.
 
 El proyecto se encuentra en su fase de cimentación técnica. Incluye identidad
 de entidades, un estado del mundo mínimo y una infraestructura reproducible de
-tests, pero todavía no hay sistemas de gameplay, contratos de datos ni
-dependencias de producción implementados.
+tests. También dispone de una primera base en memoria del contrato genérico de
+Content Packs: `PackId`, `DefinitionId`, `SemanticVersion`,
+`VersionRequirement`, `PackDependency`, `ContentManifest`, `ResourceKind`,
+`ResourceDefinition` y `ContentCatalog`.
+
+El catálogo es lógicamente inmutable, mantiene un orden determinista y detecta
+los `DefinitionId` duplicados. Todavía no hay sistemas de gameplay ni Content
+Packs reales implementados.
 
 ## Compilación
 
