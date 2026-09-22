@@ -1,0 +1,51 @@
+# CMake build trees and generated files
+/build/
+/out/
+/cmake-build-*/
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+CTestTestfile.cmake
+Testing/
+compile_commands.json
+_deps/
+
+# C and C++ build products
+*.a
+*.dll
+*.dylib
+*.exe
+*.exp
+*.ilk
+*.lib
+*.lo
+*.o
+*.obj
+*.pdb
+*.so
+
+# Visual Studio and user-specific files
+/.vs/
+*.sln
+*.suo
+*.user
+*.userosscache
+*.vcxproj
+*.vcxproj.filters
+
+# Editors and IDEs
+/.vscode/
+/.idea/
+*.code-workspace
+
+# Analysis and coverage output
+/.cache/
+/coverage/
+/reports/
+*.gcda
+*.gcno
+*.profdata
+*.profraw
+
+# Local CMake presets
+CMakeUserPresets.json

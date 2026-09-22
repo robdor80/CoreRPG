@@ -1,0 +1,203 @@
+# Arquitectura inicial de CoreRPG
+
+## Propósito
+
+CoreRPG es el núcleo lógico y autoritativo de un RPG genérico. Mantiene la
+realidad persistente del mundo, valida solicitudes y aplica reglas sin asumir
+cómo se presenta la experiencia ni qué universo contiene.
+
+El diseño debe permitir que la misma biblioteca sea utilizada desde Windows,
+Android, herramientas de consola, tests automatizados, Unreal Engine y otros
+hosts compatibles.
+
+## Fronteras del sistema
+
+La arquitectura se divide conceptualmente en tres responsabilidades:
+
+```text
+Content Pack
+     |
+     | definiciones lógicas
+     v
+  CoreRPG <---- comandos y consultas ---- Host
+     |                                      |
+     +------- resultados y eventos ---------+
+                                            |
+                                      UI / Unreal / IA
+```
+
+### CoreRPG
+
+CoreRPG es propietario del estado vivo y de sus invariantes. Entre sus futuras
+responsabilidades se encuentran las entidades, acciones, reglas, relaciones,
+tiempo, simulación, percepción, persistencia y generación procedural.
+
+Sólo el Core puede aceptar una mutación del mundo. Los hosts y herramientas
+interactúan mediante comandos y consultas; no reciben acceso para modificar el
+estado directamente.
+
+CoreRPG no contiene conceptos de un universo concreto y no depende de sistemas
+de presentación, red o plataforma.
+
+### Content Pack
+
+Un Content Pack representa conceptualmente un universo completo. Puede reunir
+dos clases de contenido:
+
+1. **Contenido lógico portable:** culturas, especies, personajes, lugares,
+   profesiones, facciones, objetos, calendarios, economía, arquetipos, reglas,
+   campañas, lore y contenido narrativo. Esta es la parte que CoreRPG podrá
+   consumir.
+2. **Contenido de presentación:** texturas, modelos, audio, animaciones, mapas
+   de un motor u otros assets. Esta parte pertenece al Host y no es interpretada
+   por CoreRPG.
+
+Cuando el contenido lógico necesite asociarse a una representación, utilizará
+identificadores abstractos. Cada Host resolverá esos identificadores a sus
+recursos concretos. El Core no conocerá formatos como `.uasset`.
+
+Los Content Packs serán inicialmente declarativos. Las diferencias entre
+universos deben expresarse mediante datos, reglas configurables y capacidades
+del Core. Código nativo cargable, scripting, plugins ejecutables y hot reload de
+código quedan fuera del alcance hasta que exista un caso real que los
+justifique.
+
+### Host
+
+El Host presenta la experiencia y adapta el entorno externo a los contratos de
+CoreRPG. Puede encargarse de UI, entrada, renderizado, audio, almacenamiento,
+red, ciclo de vida de la aplicación e integración con un motor como Unreal.
+
+Un adaptador futuro de Unreal traducirá sus tipos y operaciones a la API
+portable. Ese adaptador pertenecerá al Host o a un proyecto de integración, no
+al núcleo.
+
+## Integración con IA
+
+CoreRPG podrá incorporar en el futuro un Context Builder que produzca vistas
+estructuradas y controladas del estado. Esto permitirá que un Host proporcione a
+una IA únicamente la información que un personaje, narrador o sistema pueda
+conocer.
+
+CoreRPG no realizará:
+
+- llamadas HTTP;
+- autenticación o gestión de credenciales;
+- selección de proveedores o endpoints;
+- llamadas directas a OpenAI u otros servicios;
+- reintentos o políticas de red.
+
+Estas responsabilidades corresponden al Host. La salida de una IA se tratará
+como una solicitud no confiable: deberá convertirse en un comando estructurado
+y validarse mediante las mismas reglas que cualquier otra entrada. Una IA nunca
+modificará el estado directamente.
+
+## Determinismo
+
+El determinismo es una propiedad arquitectónica, no una optimización posterior.
+El objetivo es que el mismo estado inicial, las mismas entradas y la misma
+semilla produzcan el mismo resultado.
+
+El diseño y las pruebas deberán controlar explícitamente:
+
+- algoritmo, semilla y estado del RNG;
+- orden de las operaciones y de carga de contenido;
+- reloj y tiempo externos;
+- locale y representación textual;
+- generación y persistencia de identificadores;
+- iteración de contenedores no ordenados;
+- cálculos críticos de punto flotante;
+- orden de efectos en trabajo paralelo;
+- cualquier entrada procedente de plataforma, red o Host.
+
+No se persistirán resultados dependientes de implementaciones no especificadas,
+como hashes de biblioteca, ni se asumirá que el orden del filesystem es
+estable.
+
+Las pruebas deben ser independientes entre sí: no usarán la hora real, no
+dependerán del orden de ejecución ni compartirán estado mutable global. Las
+pruebas que incorporen variación en el futuro utilizarán semillas explícitas.
+
+La fuente aleatoria inicial de CoreRPG usa SplitMix64 con un estado de 64 bits.
+La semilla se conserva literalmente, incluido el valor `0`, y todas las
+operaciones dependen sólo de aritmética unsigned de ancho fijo. El mapeo a
+rangos cerrados usa rejection sampling propio en vez de distribuciones de la
+biblioteca estándar. Los vectores dorados del RNG son parte del contrato de
+compatibilidad: cambiar el algoritmo o su secuencia requiere una decisión
+explícita.
+
+El RNG se pasa explícitamente a las operaciones que consumen aleatoriedad y se
+mantiene separado de `WorldState`. Una entrada inválida o un rango con un único
+valor no avanza el RNG. La primera `RollAction` sólo produce un resultado y no
+modifica estado persistente, por lo que tampoco cambia la revisión del mundo.
+
+## Identidad
+
+El modelo distinguirá dos categorías de identidad:
+
+- **IDs de definiciones:** identifican recursos estables declarados por Content
+  Packs y deben evitar colisiones entre packs.
+- **IDs de entidades:** identifican instancias vivas dentro de una campaña y
+  forman parte de su estado persistente.
+
+Aunque en el futuro puedan compartir alguna representación técnica, son
+conceptos diferentes y no serán intercambiables en la API.
+
+Dentro de cada `WorldState`, los IDs de entidades vivas se asignan desde `1` de
+forma monotónica y determinista. El valor `0` representa un ID inválido y los
+IDs emitidos no se reutilizan durante la vida de ese estado del mundo.
+
+## Versiones independientes
+
+CoreRPG mantendrá separados cuatro ejes de evolución:
+
+- `core_version`: versión de la biblioteca y de su API pública;
+- `content_contract_version`: versión del contrato que describe contenido
+  lógico;
+- `pack_version`: versión de un Content Pack concreto;
+- `save_format_version`: versión del formato de estado persistido.
+
+Una actualización del Core no implica necesariamente cambiar los otros tres
+ejes. Los mecanismos concretos de compatibilidad y migración se definirán al
+implementar cada contrato.
+
+La biblioteca seguirá Semantic Versioning. Antes de `1.0.0`, la API podrá
+evolucionar mientras se descubre el dominio; alcanzar `1.0.0` requerirá una API
+pública y una política de compatibilidad explícitas.
+
+## Stack y políticas iniciales
+
+- C++20.
+- CMake como sistema de build.
+- Una biblioteca estática inicialmente, sin promesa de ABI estable.
+- Namespace raíz `corerpg`.
+- Cero dependencias externas para el código de producción al comenzar.
+- GoogleTest y CTest cuando se introduzca el primer conjunto de tests.
+- `clang-format` y adopción progresiva de `clang-tidy`.
+- Compatibilidad prevista con MSVC, Clang y GCC.
+- Semantic Versioning para las versiones publicadas del Core.
+
+La biblioteca estática es un mecanismo inicial de distribución, no una
+restricción permanente. Cualquier cambio se justificará por necesidades de
+consumidores reales.
+
+## Política de crecimiento
+
+CoreRPG comenzará como una biblioteca única con áreas lógicas internas. No se
+crearán módulos, factories, interfaces o sistemas de plugins de forma
+preventiva. Una separación física exigirá una razón técnica observable, como
+un ciclo de vida distinto, una dependencia aislable o varios consumidores con
+necesidades diferentes.
+
+Quedan expresamente pospuestos:
+
+- sistemas completos de gameplay;
+- loaders y formatos de Content Packs;
+- persistencia y migraciones;
+- ABI dinámica estable;
+- scripting y plugins ejecutables;
+- red, replicación y multithreading interno;
+- integración concreta con Unreal o proveedores de IA.
+
+Estas fronteras permiten implementar una primera vertical pequeña sin cerrar
+prematuramente decisiones que todavía no cuentan con casos de uso reales.
