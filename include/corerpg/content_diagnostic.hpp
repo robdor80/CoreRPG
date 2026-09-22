@@ -18,6 +18,8 @@ enum class ContentDiagnosticCode {
     dependency_not_found,
     dependency_version_mismatch,
     dependency_cycle,
+    unsupported_content_contract_version,
+    minimum_core_version_not_met,
     duplicate_definition,
     reference_target_not_found,
     reference_kind_mismatch,
@@ -46,6 +48,14 @@ public:
     [[nodiscard]] static ContentDiagnostic dependency_cycle(
         PackId pack_id, PackId dependency_pack_id);
 
+    [[nodiscard]] static ContentDiagnostic unsupported_content_contract_version(
+        PackId pack_id, SemanticVersion declared_version,
+        SemanticVersion supported_version);
+
+    [[nodiscard]] static ContentDiagnostic minimum_core_version_not_met(
+        PackId pack_id, SemanticVersion minimum_core_version,
+        SemanticVersion current_core_version);
+
     [[nodiscard]] static ContentDiagnostic duplicate_definition(DefinitionId definition_id);
 
     [[nodiscard]] static ContentDiagnostic reference_target_not_found(
@@ -68,6 +78,7 @@ public:
     [[nodiscard]] const std::optional<ResourceKind>& actual_kind() const noexcept;
     [[nodiscard]] const std::optional<VersionRequirement>& version_requirement() const noexcept;
     [[nodiscard]] const std::optional<SemanticVersion>& actual_version() const noexcept;
+    [[nodiscard]] const std::optional<SemanticVersion>& supported_version() const noexcept;
 
 private:
     ContentDiagnostic(ContentDiagnosticCode code, PackId pack_id,
@@ -77,7 +88,8 @@ private:
                       std::optional<ResourceKind> expected_kind,
                       std::optional<ResourceKind> actual_kind,
                       std::optional<VersionRequirement> version_requirement,
-                      std::optional<SemanticVersion> actual_version);
+                      std::optional<SemanticVersion> actual_version,
+                      std::optional<SemanticVersion> supported_version = std::nullopt);
 
     ContentDiagnosticCode code_;
     PackId pack_id_;
@@ -88,6 +100,7 @@ private:
     std::optional<ResourceKind> actual_kind_;
     std::optional<VersionRequirement> version_requirement_;
     std::optional<SemanticVersion> actual_version_;
+    std::optional<SemanticVersion> supported_version_;
 };
 
 }  // namespace corerpg

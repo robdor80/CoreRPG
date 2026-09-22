@@ -61,7 +61,7 @@ ContentPackInput pack_input(
     std::vector<PackDependency> dependencies = {},
     std::string_view pack_version = "1.0.0") {
     return ContentPackInput(
-        ContentManifest(pack_id(value), version(pack_version), version("1.0.0"),
+        ContentManifest(pack_id(value), version(pack_version), version("0.1.0"),
                         version("0.1.0"), std::move(dependencies)),
         std::move(definitions));
 }

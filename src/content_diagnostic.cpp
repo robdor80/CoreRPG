@@ -10,13 +10,15 @@ ContentDiagnostic::ContentDiagnostic(
     std::optional<DefinitionId> related_definition_id,
     std::optional<ResourceKind> expected_kind, std::optional<ResourceKind> actual_kind,
     std::optional<VersionRequirement> version_requirement,
-    std::optional<SemanticVersion> actual_version)
+    std::optional<SemanticVersion> actual_version,
+    std::optional<SemanticVersion> supported_version)
     : code_(code), pack_id_(std::move(pack_id)),
       related_pack_id_(std::move(related_pack_id)), definition_id_(std::move(definition_id)),
       related_definition_id_(std::move(related_definition_id)),
       expected_kind_(std::move(expected_kind)), actual_kind_(std::move(actual_kind)),
       version_requirement_(std::move(version_requirement)),
-      actual_version_(std::move(actual_version)) {}
+      actual_version_(std::move(actual_version)),
+      supported_version_(std::move(supported_version)) {}
 
 ContentDiagnostic ContentDiagnostic::duplicate_pack(PackId pack_id) {
     return ContentDiagnostic(ContentDiagnosticCode::duplicate_pack, std::move(pack_id),
@@ -68,6 +70,27 @@ ContentDiagnostic ContentDiagnostic::dependency_cycle(
     return ContentDiagnostic(ContentDiagnosticCode::dependency_cycle, std::move(pack_id),
                              std::move(dependency_pack_id), std::nullopt, std::nullopt,
                              std::nullopt, std::nullopt, std::nullopt, std::nullopt);
+}
+
+ContentDiagnostic ContentDiagnostic::unsupported_content_contract_version(
+    PackId pack_id, SemanticVersion declared_version,
+    SemanticVersion supported_version) {
+    return ContentDiagnostic(
+        ContentDiagnosticCode::unsupported_content_contract_version,
+        std::move(pack_id), std::nullopt, std::nullopt, std::nullopt,
+        std::nullopt, std::nullopt, std::nullopt, std::move(declared_version),
+        std::move(supported_version));
+}
+
+ContentDiagnostic ContentDiagnostic::minimum_core_version_not_met(
+    PackId pack_id, SemanticVersion minimum_core_version,
+    SemanticVersion current_core_version) {
+    auto requirement =
+        VersionRequirement::create(std::move(minimum_core_version)).value();
+    return ContentDiagnostic(
+        ContentDiagnosticCode::minimum_core_version_not_met, std::move(pack_id),
+        std::nullopt, std::nullopt, std::nullopt, std::nullopt, std::nullopt,
+        std::move(requirement), std::move(current_core_version));
 }
 
 ContentDiagnostic ContentDiagnostic::duplicate_definition(DefinitionId definition_id) {
@@ -141,6 +164,10 @@ const std::optional<VersionRequirement>& ContentDiagnostic::version_requirement(
 
 const std::optional<SemanticVersion>& ContentDiagnostic::actual_version() const noexcept {
     return actual_version_;
+}
+
+const std::optional<SemanticVersion>& ContentDiagnostic::supported_version() const noexcept {
+    return supported_version_;
 }
 
 }  // namespace corerpg

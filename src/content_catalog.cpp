@@ -3,8 +3,11 @@
 #include <algorithm>
 #include <cassert>
 #include <cstddef>
+#include <iterator>
 #include <utility>
 #include <vector>
+
+#include "corerpg/content_compatibility.hpp"
 
 namespace corerpg {
 namespace {
@@ -88,6 +91,9 @@ struct ReferenceTask final {
     if (left.actual_version() != right.actual_version()) {
         return left.actual_version() < right.actual_version();
     }
+    if (left.supported_version() != right.supported_version()) {
+        return left.supported_version() < right.supported_version();
+    }
     if (left.expected_kind() != right.expected_kind()) {
         return left.expected_kind() < right.expected_kind();
     }
@@ -148,6 +154,19 @@ CatalogBuildResult ContentCatalog::create(std::vector<ContentPackInput> packs) {
                     pack.manifest().pack_id(), definition.definition().id()));
             }
         }
+    }
+
+    if (!diagnostics.empty()) {
+        sort_diagnostics(diagnostics);
+        return CatalogBuildResult(std::move(diagnostics));
+    }
+
+    const auto compatibility = ContentCompatibility::current();
+    for (const auto& pack : packs) {
+        auto pack_diagnostics = compatibility.validate(pack.manifest());
+        diagnostics.insert(diagnostics.end(),
+                           std::make_move_iterator(pack_diagnostics.begin()),
+                           std::make_move_iterator(pack_diagnostics.end()));
     }
 
     if (!diagnostics.empty()) {

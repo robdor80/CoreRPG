@@ -19,6 +19,7 @@ add_library(CoreRPG::CoreRPG ALIAS CoreRPG)
 target_sources(
     CoreRPG
     PRIVATE
+        src/content_compatibility.cpp
         src/content_catalog.cpp
         src/content_diagnostic.cpp
         src/content_id.cpp
@@ -33,6 +34,7 @@ target_sources(
         FILE_SET HEADERS
         BASE_DIRS include
         FILES
+            include/corerpg/content_compatibility.hpp
             include/corerpg/content_catalog.hpp
             include/corerpg/content_definition_input.hpp
             include/corerpg/content_diagnostic.hpp

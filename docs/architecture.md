@@ -165,8 +165,13 @@ CoreRPG mantendrá separados cuatro ejes de evolución:
 - `save_format_version`: versión del formato de estado persistido.
 
 Una actualización del Core no implica necesariamente cambiar los otros tres
-ejes. Los mecanismos concretos de compatibilidad y migración se definirán al
-implementar cada contrato.
+ejes. Cada contrato define su propia política de compatibilidad y los mecanismos
+de migración sólo se introducirán cuando sean necesarios.
+
+La fuente única de `core_version` es `project(CoreRPG VERSION ...)` en CMake.
+`library_version()` expone esa versión como texto y `current_core_version()`
+expone el mismo valor como `SemanticVersion`; ninguna de estas APIs mantiene
+una segunda copia manual de la versión de la biblioteca.
 
 Las versiones usan inicialmente el subconjunto estable `MAJOR.MINOR.PATCH`, con
 tres enteros de 32 bits sin signo y sin prerelease ni build metadata. Los
@@ -230,9 +235,19 @@ orden de packs, manifests, dependencias, definiciones y referencias no tiene
 semántica y no establece load order, prioridad, override ni merge. El conjunto
 completo conserva semántica todo-o-nada.
 
-La compatibilidad completa entre CoreRPG, `content_contract_version` y
-`minimum_core_version` permanece pospuesta hasta disponer de una política central
-de versiones soportadas.
+La política de compatibilidad es inmutable y mantiene separados `core_version`
+y la versión de contrato soportada. CoreRPG soporta inicialmente exactamente el
+Content Contract `0.1.0`: un manifest sólo es compatible cuando su
+`content_contract_version` es igual a esa versión, sin rangos ni inferencias por
+major o minor. Además, `minimum_core_version` debe ser menor o igual que
+`current_core_version()`.
+
+Las dos condiciones se validan independientemente y, cuando ambas fallan, se
+devuelven ambos diagnósticos en orden determinista. Esta compatibilidad se
+comprueba después de eliminar ambigüedades de identidad y ownership, pero antes
+de interpretar dependencias o referencias. CoreRPG `0.1.0` y Content Contract
+`0.1.0` coinciden actualmente de forma circunstancial: son ejes independientes
+y ninguno se deriva del otro.
 
 La biblioteca seguirá Semantic Versioning. Antes de `1.0.0`, la API podrá
 evolucionar mientras se descubre el dominio; alcanzar `1.0.0` requerirá una API
