@@ -112,9 +112,14 @@ if(CORERPG_BUILD_CONTENT_JSON)
         CoreRPGContentJson
         PRIVATE
             src/content_json_backend.cpp
+        PUBLIC
+            FILE_SET HEADERS
+            BASE_DIRS include
+            FILES
+                include/corerpg/content_json/json_document_reader.hpp
     )
 
-    target_compile_features(CoreRPGContentJson PRIVATE cxx_std_20)
+    target_compile_features(CoreRPGContentJson PUBLIC cxx_std_20)
 
     set_target_properties(
         CoreRPGContentJson
@@ -130,6 +135,13 @@ if(CORERPG_BUILD_CONTENT_JSON)
             CoreRPG::CoreRPG
         PRIVATE
             jsoncons
+    )
+
+    target_include_directories(
+        CoreRPGContentJson
+        PUBLIC
+            $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include>
+            $<INSTALL_INTERFACE:include>
     )
 
     if(MSVC)

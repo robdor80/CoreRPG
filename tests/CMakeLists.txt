@@ -49,3 +49,38 @@ endif()
 
 include(GoogleTest)
 gtest_discover_tests(corerpg_tests)
+
+if(CORERPG_BUILD_CONTENT_JSON)
+    add_executable(
+        corerpg_content_json_tests
+        content_json_document_reader_test.cpp
+    )
+
+    target_link_libraries(
+        corerpg_content_json_tests
+        PRIVATE
+            CoreRPG::ContentJson
+            GTest::gtest_main
+    )
+
+    target_compile_definitions(
+        corerpg_content_json_tests
+        PRIVATE CORERPG_SOURCE_DIR="${PROJECT_SOURCE_DIR}"
+    )
+
+    set_target_properties(
+        corerpg_content_json_tests
+        PROPERTIES
+            CXX_STANDARD 20
+            CXX_STANDARD_REQUIRED YES
+            CXX_EXTENSIONS NO
+    )
+
+    if(MSVC)
+        target_compile_options(corerpg_content_json_tests PRIVATE /W4 /permissive-)
+    elseif(CMAKE_CXX_COMPILER_ID MATCHES "Clang|GNU")
+        target_compile_options(corerpg_content_json_tests PRIVATE -Wall -Wextra -Wpedantic)
+    endif()
+
+    gtest_discover_tests(corerpg_content_json_tests)
+endif()

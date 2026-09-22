@@ -254,13 +254,18 @@ Schema Draft 2020-12. Su formato de manifest, índice explícito de recursos,
 localizadores, documentos de definición y fronteras de validación se especifica
 en [`content-json-contract-0.1.0.md`](content-json-contract-0.1.0.md).
 
-La futura lectura de esa representación pertenece a la biblioteca opcional
-`CoreRPGContentJson`. Este target depende de `CoreRPG` y mantiene su stack JSON
-como detalle privado. `CoreRPG` no enlaza ni expone esa dependencia, por lo que
-un Host que construya `ContentPackInput` por otros medios puede utilizar sólo la
-biblioteca de dominio. El target existe inicialmente como frontera de build; la
-lectura estricta, la validación de schemas y la conversión a tipos fuertes se
-incorporarán en incrementos posteriores.
+La lectura física de esa representación pertenece a la biblioteca opcional
+`CoreRPGContentJson`. Su lector recibe bytes en memoria, rechaza BOM, comentarios,
+UTF-8 inválido, JSON mal formado y claves duplicadas antes de conservar un
+documento opaco. El límite de tamaño es una política explícita del llamador. El
+documento mantiene el DOM y jsoncons como detalles privados para que capas
+posteriores puedan reutilizar el parseo sin exponer un modelo JSON genérico.
+
+Este target depende de `CoreRPG`, pero `CoreRPG` no enlaza ni expone su stack
+JSON. Un Host que construya `ContentPackInput` por otros medios puede utilizar
+sólo la biblioteca de dominio. La validación de schemas, la resolución de
+recursos y la conversión a tipos fuertes permanecen fuera de esta capa de
+lectura estricta.
 
 La biblioteca seguirá Semantic Versioning. Antes de `1.0.0`, la API podrá
 evolucionar mientras se descubre el dominio; alcanzar `1.0.0` requerirá una API

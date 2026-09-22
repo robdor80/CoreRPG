@@ -31,6 +31,7 @@ JSON Schema Draft 2020-12 y cumplen estas reglas:
 
 - el texto está codificado como UTF-8 válido;
 - los documentos canónicos no contienen byte order mark (BOM);
+- se utiliza JSON estándar estricto y no se admiten comentarios;
 - el whitespace no tiene semántica;
 - el orden de las propiedades no tiene semántica;
 - identificadores y localizadores físicos utilizan ASCII estricto;
