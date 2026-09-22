@@ -1,0 +1,11 @@
+{
+  "$schema": "https://robdor80.github.io/CoreRPG/schemas/content/0.1.0/resource-definition.schema.json",
+  "id": "example.test:things/b",
+  "kind": "thing",
+  "references": [
+    {
+      "target": "example.test:things/a",
+      "expected_kind": "thing"
+    }
+  ]
+}

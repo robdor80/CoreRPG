@@ -1,0 +1,14 @@
+{
+  "$schema": "https://robdor80.github.io/CoreRPG/schemas/content/0.1.0/content-pack-manifest.schema.json",
+  "pack_id": "example.test",
+  "pack_version": "1.0.0",
+  "content_contract_version": "0.1.0",
+  "minimum_core_version": "0.1.0",
+  "dependencies": [],
+  "resources": [
+    "resources/things/a.json",
+    "resources/things/b.json"
+  ],
+  "display_name": "Example Test",
+  "description": "Neutral content pack used to validate Content Contract 0.1.0."
+}
