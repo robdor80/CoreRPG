@@ -249,6 +249,11 @@ de interpretar dependencias o referencias. CoreRPG `0.1.0` y Content Contract
 `0.1.0` coinciden actualmente de forma circunstancial: son ejes independientes
 y ninguno se deriva del otro.
 
+La representación física inicial de ese contrato utiliza JSON UTF-8 y JSON
+Schema Draft 2020-12. Su formato de manifest, índice explícito de recursos,
+localizadores, documentos de definición y fronteras de validación se especifica
+en [`content-json-contract-0.1.0.md`](content-json-contract-0.1.0.md).
+
 La biblioteca seguirá Semantic Versioning. Antes de `1.0.0`, la API podrá
 evolucionar mientras se descubre el dominio; alcanzar `1.0.0` requerirá una API
 pública y una política de compatibilidad explícitas.
