@@ -15,6 +15,8 @@ FetchContent_MakeAvailable(googletest)
 
 add_executable(
     corerpg_tests
+    random_test.cpp
+    roll_action_test.cpp
     smoke_test.cpp
     world_state_test.cpp
 )

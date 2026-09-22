@@ -19,6 +19,8 @@ add_library(CoreRPG::CoreRPG ALIAS CoreRPG)
 target_sources(
     CoreRPG
     PRIVATE
+        src/random.cpp
+        src/roll_action.cpp
         src/version.cpp
         src/world_state.cpp
     PUBLIC
@@ -26,6 +28,8 @@ target_sources(
         BASE_DIRS include
         FILES
             include/corerpg/entity_id.hpp
+            include/corerpg/random.hpp
+            include/corerpg/roll_action.hpp
             include/corerpg/version.hpp
             include/corerpg/world_state.hpp
 )

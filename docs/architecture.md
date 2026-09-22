@@ -118,6 +118,19 @@ Las pruebas deben ser independientes entre sí: no usarán la hora real, no
 dependerán del orden de ejecución ni compartirán estado mutable global. Las
 pruebas que incorporen variación en el futuro utilizarán semillas explícitas.
 
+La fuente aleatoria inicial de CoreRPG usa SplitMix64 con un estado de 64 bits.
+La semilla se conserva literalmente, incluido el valor `0`, y todas las
+operaciones dependen sólo de aritmética unsigned de ancho fijo. El mapeo a
+rangos cerrados usa rejection sampling propio en vez de distribuciones de la
+biblioteca estándar. Los vectores dorados del RNG son parte del contrato de
+compatibilidad: cambiar el algoritmo o su secuencia requiere una decisión
+explícita.
+
+El RNG se pasa explícitamente a las operaciones que consumen aleatoriedad y se
+mantiene separado de `WorldState`. Una entrada inválida o un rango con un único
+valor no avanza el RNG. La primera `RollAction` sólo produce un resultado y no
+modifica estado persistente, por lo que tampoco cambia la revisión del mundo.
+
 ## Identidad
 
 El modelo distinguirá dos categorías de identidad:
