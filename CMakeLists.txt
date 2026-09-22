@@ -20,6 +20,7 @@ target_sources(
     CoreRPG
     PRIVATE
         src/content_catalog.cpp
+        src/content_diagnostic.cpp
         src/content_id.cpp
         src/semantic_version.cpp
         src/version_requirement.cpp
@@ -33,7 +34,10 @@ target_sources(
         BASE_DIRS include
         FILES
             include/corerpg/content_catalog.hpp
+            include/corerpg/content_definition_input.hpp
+            include/corerpg/content_diagnostic.hpp
             include/corerpg/content_manifest.hpp
+            include/corerpg/definition_reference.hpp
             include/corerpg/definition_id.hpp
             include/corerpg/entity_id.hpp
             include/corerpg/pack_dependency.hpp

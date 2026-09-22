@@ -1,17 +1,21 @@
 #pragma once
 
 #include <cstddef>
-#include <optional>
+#include <variant>
 #include <vector>
 
+#include "corerpg/content_definition_input.hpp"
+#include "corerpg/content_diagnostic.hpp"
 #include "corerpg/resource_definition.hpp"
 
 namespace corerpg {
 
+class CatalogBuildResult;
+
 class ContentCatalog final {
 public:
-    [[nodiscard]] static std::optional<ContentCatalog> create(
-        std::vector<ResourceDefinition> definitions);
+    [[nodiscard]] static CatalogBuildResult create(
+        std::vector<ContentDefinitionInput> definitions);
 
     [[nodiscard]] std::size_t size() const noexcept;
     [[nodiscard]] bool empty() const noexcept;
@@ -23,6 +27,21 @@ private:
     explicit ContentCatalog(std::vector<ResourceDefinition> definitions);
 
     std::vector<ResourceDefinition> definitions_;
+};
+
+class CatalogBuildResult final {
+public:
+    [[nodiscard]] bool succeeded() const noexcept;
+    [[nodiscard]] const ContentCatalog* catalog() const noexcept;
+    [[nodiscard]] const std::vector<ContentDiagnostic>* diagnostics() const noexcept;
+
+private:
+    friend class ContentCatalog;
+
+    explicit CatalogBuildResult(ContentCatalog catalog);
+    explicit CatalogBuildResult(std::vector<ContentDiagnostic> diagnostics);
+
+    std::variant<ContentCatalog, std::vector<ContentDiagnostic>> result_;
 };
 
 }  // namespace corerpg

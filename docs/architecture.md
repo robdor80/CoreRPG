@@ -200,6 +200,23 @@ de entrada mediante el orden byte a byte de `DefinitionId` y usa ese orden para
 búsqueda binaria y recorrido determinista. No define políticas de override, merge,
 prioridad ni last-wins.
 
+La construcción del catálogo recibe `ContentDefinitionInput` temporales. Cada uno
+asocia una `ResourceDefinition` candidata con referencias obligatorias descritas por
+un `DefinitionId` target y el `ResourceKind` esperado, sin modificar el sobre mínimo
+de la definición publicada. Resolver una referencia significa comprobar en memoria
+que el target existe y que su tipo coincide; no crea punteros persistentes.
+
+El staging es interno y la construcción tiene semántica todo-o-nada: sólo publica un
+`ContentCatalog` completo cuando no existen IDs duplicados, referencias ausentes ni
+tipos incompatibles. En caso contrario devuelve diagnósticos estructurados, poseídos
+y ordenados canónicamente. El orden original de definiciones y referencias carece de
+semántica.
+
+Los ciclos y autorreferencias entre definiciones son válidos para el resolver
+genérico. Las referencias entre packs se comprueban actualmente por existencia y
+tipo; la validación de manifests, dependencias y autorización cross-pack queda
+pospuesta y no se infiere ninguna política definitiva de esta capacidad.
+
 La biblioteca seguirá Semantic Versioning. Antes de `1.0.0`, la API podrá
 evolucionar mientras se descubre el dominio; alcanzar `1.0.0` requerirá una API
 pública y una política de compatibilidad explícitas.
