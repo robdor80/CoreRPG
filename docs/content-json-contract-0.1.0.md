@@ -259,6 +259,12 @@ La ausencia de `maximum_exclusive` significa que el intervalo no tiene cota
 superior. No se utiliza `null`. Los requisitos permanecen estructurados; no se
 admiten mini lenguajes textuales como `^1.0`, `~1.0` o `>=1 <2`.
 
+`PackDependency` no contiene ni implica una localización física. En particular,
+un `PackId` no se transforma en nombre de directorio, path, URL o entrada de un
+registry. La construcción multi-pack sólo considera las raíces que el caller
+entrega explícitamente; una dependencia ausente se diagnostica después mediante
+`ContentCatalog::create` y nunca provoca discovery o carga automática.
+
 ## Frontera de validación
 
 La carga mantiene tres niveles de responsabilidad.
@@ -397,6 +403,11 @@ content-packs/
       things/
         a.json
         b.json
+  example.addon/
+    manifest.json
+    resources/
+      things/
+        c.json
 ```
 
 Contendrá dos definiciones de kind `thing`:
@@ -404,10 +415,13 @@ Contendrá dos definiciones de kind `thing`:
 - `example.test:things/a`, sin referencias;
 - `example.test:things/b`, con una referencia a `example.test:things/a` y
   `expected_kind` igual a `thing`.
+- `example.addon:things/c`, con dependencia directa de `example.test` y una
+  referencia autorizada a `example.test:things/a`.
 
-Estos documentos ejercitan la carga física completa hasta `ContentPackInput`.
-La validación semántica global continúa siendo una operación posterior y
-explícita mediante `ContentCatalog::create`.
+Estos documentos ejercitan la carga física de múltiples `ContentPackInput`, un
+requisito de versión y una referencia cross-pack. La orquestación entrega ambos
+inputs a `ContentCatalog::create`; el Core sigue siendo la única autoridad sobre
+la validación semántica global.
 
 ## Frontera con payloads y lore
 

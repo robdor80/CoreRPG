@@ -313,9 +313,30 @@ bytes JSON
 
 Este target depende de `CoreRPG`, pero `CoreRPG` no enlaza ni expone su stack
 JSON. Un Host que construya `ContentPackInput` por otros medios puede utilizar
-sólo la biblioteca de dominio. `CoreRPGContentJson` termina en
+sólo la biblioteca de dominio. El loader físico individual termina en
 `ContentPackInput`: no llama `ContentCatalog::create`, no resuelve referencias
 ni duplica las validaciones semánticas globales del Core.
+
+La operación multi-pack de la integración recibe una lista explícita de raíces,
+carga cada una mediante el mismo loader físico y entrega todos los
+`ContentPackInput` a `ContentCatalog::create`. No descubre directorios, no
+traduce `PackId` a paths y no intenta cargar dependencias ausentes. Un
+`PackDependency` sólo tiene significado lógico dentro del conjunto que el
+caller proporcionó.
+
+```text
+raíces de pack explícitas
+    -> load_content_pack(root) por cada raíz
+    -> ContentPackInput[]
+    -> ContentCatalog::create
+    -> catálogo validado e inmutable
+```
+
+La operación completa es atómica. Un fallo físico conserva la raíz concreta y
+el resultado detallado del loader; un fallo global conserva directamente los
+`ContentDiagnostic` del Core. El orden de raíces sólo determina cuál es el
+primer fallo físico observado durante la iteración y no establece prioridad,
+override, precedencia ni orden semántico de carga.
 
 La biblioteca seguirá Semantic Versioning. Antes de `1.0.0`, la API podrá
 evolucionar mientras se descubre el dominio; alcanzar `1.0.0` requerirá una API

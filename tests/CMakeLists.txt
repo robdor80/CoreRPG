@@ -53,6 +53,7 @@ gtest_discover_tests(corerpg_tests)
 if(CORERPG_BUILD_CONTENT_JSON)
     add_executable(
         corerpg_content_json_tests
+        content_catalog_loader_test.cpp
         content_json_document_decoder_test.cpp
         content_json_document_reader_test.cpp
         content_json_schema_validator_test.cpp

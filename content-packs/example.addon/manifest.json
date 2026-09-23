@@ -1,0 +1,21 @@
+{
+  "$schema": "https://robdor80.github.io/CoreRPG/schemas/content/0.1.0/content-pack-manifest.schema.json",
+  "pack_id": "example.addon",
+  "pack_version": "1.0.0",
+  "content_contract_version": "0.1.0",
+  "minimum_core_version": "0.1.0",
+  "dependencies": [
+    {
+      "pack_id": "example.test",
+      "version_requirement": {
+        "minimum_inclusive": "1.0.0",
+        "maximum_exclusive": "2.0.0"
+      }
+    }
+  ],
+  "resources": [
+    "resources/things/c.json"
+  ],
+  "display_name": "Example Addon",
+  "description": "Neutral dependent content pack used to validate multi-pack catalog loading."
+}

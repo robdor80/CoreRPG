@@ -138,6 +138,7 @@ if(CORERPG_BUILD_CONTENT_JSON)
         CoreRPGContentJson
         PRIVATE
             "${content_schema_generated_header}"
+            src/content_catalog_loader.cpp
             src/content_json_backend.cpp
             src/content_json_document_decoder.cpp
             src/content_json_document_internal.hpp
@@ -147,6 +148,7 @@ if(CORERPG_BUILD_CONTENT_JSON)
             FILE_SET HEADERS
             BASE_DIRS include
             FILES
+                include/corerpg/content_json/content_catalog_loader.hpp
                 include/corerpg/content_json/content_document_decoder.hpp
                 include/corerpg/content_json/json_document_reader.hpp
                 include/corerpg/content_json/json_schema_validator.hpp
