@@ -285,22 +285,37 @@ autoría sólo como representación; ningún comportamiento depende de esa posic
 Una definición física se convierte directamente en `ContentDefinitionInput`,
 sin resolver referencias ni construir un catálogo.
 
+El loader físico de `CoreRPGContentJson` recibe la ruta de un directorio de pack,
+canonicaliza esa raíz y busca exclusivamente `manifest.json`. El índice
+`resources` decodificado es autoritativo: cada localizador se resuelve respecto
+a la raíz efectiva, se canonicaliza y sólo se lee si continúa siendo un
+descendiente de esa raíz. Esto bloquea traversal textual y escapes mediante
+symlinks sin descubrir archivos por recorrido. Una raíz suministrada como
+symlink está permitida; su destino canonicalizado pasa a ser la raíz efectiva.
+
+Manifest y recursos se leen en binario con límites explícitos por documento
+(16 MiB y 64 MiB por defecto, respectivamente). El loader conserva por separado
+los errores de filesystem, lectura JSON, schema y mapping, y sólo publica un
+`ContentPackInput` después de cargar correctamente todos los recursos. Los
+localizadores cumplen entonces su función física y no se conservan en el modelo
+lógico. Los archivos no listados se ignoran.
+
 ```text
 bytes JSON
     -> lector estricto
     -> JsonDocument
     -> schema del rol
     -> mapper de tipos fuertes
-    -> futuro loader de pack
+    -> loader físico guiado por manifest.json y resources
     -> ContentPackInput
     -> validación global de CoreRPG
 ```
 
 Este target depende de `CoreRPG`, pero `CoreRPG` no enlaza ni expone su stack
 JSON. Un Host que construya `ContentPackInput` por otros medios puede utilizar
-sólo la biblioteca de dominio. La apertura y resolución de localizadores, la
-asociación explícita entre localizador y documento, y la formación final de
-`ContentPackInput` permanecen reservadas para un loader futuro.
+sólo la biblioteca de dominio. `CoreRPGContentJson` termina en
+`ContentPackInput`: no llama `ContentCatalog::create`, no resuelve referencias
+ni duplica las validaciones semánticas globales del Core.
 
 La biblioteca seguirá Semantic Versioning. Antes de `1.0.0`, la API podrá
 evolucionar mientras se descubre el dominio; alcanzar `1.0.0` requerirá una API

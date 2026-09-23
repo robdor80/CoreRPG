@@ -12,15 +12,15 @@ bytes JSON
       -> JsonDocument
       -> validación del schema del rol
       -> conversión a tipos fuertes
-      -> futuro loader y ContentPackInput
+      -> loader físico y ContentPackInput
       -> validación semántica global y ContentCatalog
 ```
 
 El contrato físico no modifica las responsabilidades de `ContentManifest`,
 `ContentDefinitionInput`, `ResourceDefinition`, `DefinitionReference`,
 `PackDependency`, `VersionRequirement` ni `ContentCatalog`. Este documento fija
-la base que implementarán los schemas y el loader en incrementos posteriores;
-no define todavía esos archivos, una API de carga ni payloads específicos.
+la representación que implementan los schemas, el mapper y el loader de
+filesystem; no define payloads específicos.
 
 ## Formato canónico
 
@@ -106,16 +106,16 @@ definición pertenecientes al pack:
 
 Este índice:
 
-- pertenece a la capa física JSON y al futuro loader;
+- pertenece a la capa física JSON y al loader;
 - no pertenece a `ContentManifest` C++;
 - no forma parte de la identidad;
 - no aparece en saves;
 - no permanece en `ContentCatalog`;
 - sólo determina qué documentos debe leer el loader.
 
-El decoder puede conservar el orden de autoría del array, pero ese orden no
+El decoder y el loader pueden conservar el orden de autoría del array, pero ese orden no
 empareja documentos con definiciones ni establece prioridad, load order u otra
-semántica. El futuro loader abrirá cada `ResourceLocator` explícito.
+semántica. El loader abre cada `ResourceLocator` explícito.
 
 El runtime carga exclusivamente los documentos listados. No descubre contenido
 recorriendo directorios y no interpreta el orden del filesystem. Un documento
@@ -125,6 +125,11 @@ forma parte del pack y no se carga.
 Las herramientas de autoría o empaquetado podrán detectar JSON no listados bajo
 el directorio reservado `resources/`, pero esa comprobación no convierte el
 recorrido en un mecanismo de descubrimiento o de orden de carga.
+
+En runtime el loader busca exclusivamente `manifest.json` en la raíz recibida;
+no acepta nombres alternativos ni busca packs o manifests recursivamente. Lee
+exactamente los recursos listados. README, licencias, metadata futura y JSON no
+listados pueden coexistir en el directorio y se ignoran.
 
 ## `ResourceLocator`
 
@@ -154,6 +159,20 @@ No son válidos:
 
 El loader deberá resolver el localizador sin permitir que el resultado escape
 de la raíz del pack.
+
+La raíz suministrada se canonicaliza. Si es un symlink, su destino se acepta
+como raíz efectiva. Cada recurso existente también se canonicaliza y se compara
+con esa raíz usando componentes e identidad de filesystem, nunca mediante un
+prefijo textual. Un symlink intermedio o final que resuelva fuera del pack se
+rechaza. La misma regla impide que `manifest.json` sea un symlink hacia fuera.
+
+Esta protección se apoya en las operaciones portables de `std::filesystem` y
+presupone que el árbol del pack no se modifica concurrentemente durante la
+carga; la biblioteca estándar no ofrece una apertura race-free equivalente a
+`openat`/`O_NOFOLLOW` en todas las plataformas. En filesystems Windows
+case-insensitive, el schema mantiene los localizadores contractuales en
+minúsculas, pero el loader no intenta verificar el casing físico almacenado del
+nombre.
 
 `ResourceLocator` no es `DefinitionId`. La ubicación física no define identidad,
 ownership ni `ResourceKind`. Renombrar un archivo no cambia la identidad lógica
@@ -264,6 +283,24 @@ schema de su rol antes de acceder a sus campos. Un fallo de schema conserva
 distinto con código estable, JSON Pointer aproximado y mensaje técnico. La
 validación de schema no sustituye nunca a los parsers y factories del Core.
 
+### Loader físico: filesystem y orquestación
+
+El loader lee archivos en modo binario y de forma acotada. Por defecto admite
+hasta 16 MiB para `manifest.json` y 64 MiB para cada documento de recurso; el
+caller puede sustituir ambos límites mediante opciones explícitas. Un exceso se
+conserva como `JsonDiagnosticCode::document_too_large` sin reservar memoria sin
+límite.
+
+Los diagnósticos propios del loader cubren únicamente existencia, tipo,
+resolución, confinamiento y lectura de archivos. Los fallos del lector estricto,
+schema y mapping conservan sus tipos originales junto con el path del documento
+y, para recursos, su `ResourceLocator`. No se colapsan en un error genérico.
+
+La operación es atómica: si cualquier recurso falla, no se devuelve un
+`ContentPackInput` parcial. Cuando todos funcionan, se construye el input con el
+`ContentManifest` decodificado y todas las `ContentDefinitionInput`; los
+localizadores no pasan al modelo lógico.
+
 ### CoreRPG: significado global
 
 CoreRPG continúa validando:
@@ -368,9 +405,9 @@ Contendrá dos definiciones de kind `thing`:
 - `example.test:things/b`, con una referencia a `example.test:things/a` y
   `expected_kind` igual a `thing`.
 
-Estos documentos ejercitan la lectura, validación y conversión a tipos fuertes.
-Todavía no existe un loader de filesystem que forme un `ContentPackInput` a
-partir de ellos.
+Estos documentos ejercitan la carga física completa hasta `ContentPackInput`.
+La validación semántica global continúa siendo una operación posterior y
+explícita mediante `ContentCatalog::create`.
 
 ## Frontera con payloads y lore
 

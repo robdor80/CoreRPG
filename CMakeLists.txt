@@ -142,6 +142,7 @@ if(CORERPG_BUILD_CONTENT_JSON)
             src/content_json_document_decoder.cpp
             src/content_json_document_internal.hpp
             src/content_json_schema_validator.cpp
+            src/content_pack_loader.cpp
         PUBLIC
             FILE_SET HEADERS
             BASE_DIRS include
@@ -149,6 +150,7 @@ if(CORERPG_BUILD_CONTENT_JSON)
                 include/corerpg/content_json/content_document_decoder.hpp
                 include/corerpg/content_json/json_document_reader.hpp
                 include/corerpg/content_json/json_schema_validator.hpp
+                include/corerpg/content_json/content_pack_loader.hpp
     )
 
     target_compile_features(CoreRPGContentJson PUBLIC cxx_std_20)

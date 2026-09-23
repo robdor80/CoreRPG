@@ -56,6 +56,7 @@ if(CORERPG_BUILD_CONTENT_JSON)
         content_json_document_decoder_test.cpp
         content_json_document_reader_test.cpp
         content_json_schema_validator_test.cpp
+        content_pack_loader_test.cpp
     )
 
     target_link_libraries(
