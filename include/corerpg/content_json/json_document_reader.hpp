@@ -51,6 +51,7 @@ public:
     JsonDocument& operator=(const JsonDocument&) = delete;
 
 private:
+    friend class JsonDocumentAccess;
     friend class SchemaRegistry;
     friend JsonReadResult read_json_document(std::span<const std::byte> bytes,
                                              JsonReaderOptions options);

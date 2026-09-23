@@ -270,11 +270,37 @@ versionados y sus `$ref` se resuelven exclusivamente contra ese conjunto, sin
 red ni búsqueda arbitraria en el filesystem. Los schemas compilados se
 inicializan una sola vez y se reutilizan.
 
+Después de validar el rol correcto, la misma biblioteca convierte directamente
+el DOM ya parseado a los tipos fuertes de CoreRPG. Cada decoder selecciona y
+ejecuta internamente su schema antes de leer campos; no confía en una validación
+previa del llamador. Las fábricas de `PackId`, `DefinitionId`, `ResourceKind`,
+`SemanticVersion` y `VersionRequirement` siguen siendo la autoridad sobre sus
+invariantes, por lo que la conversión puede fallar aunque la forma JSON sea
+válida. Los fallos de schema y de conversión se conservan como categorías
+diagnósticas excluyentes.
+
+El manifest físico se decodifica como un `ContentManifest` lógico junto con sus
+localizadores de recursos poseídos. Los localizadores conservan el orden de
+autoría sólo como representación; ningún comportamiento depende de esa posición.
+Una definición física se convierte directamente en `ContentDefinitionInput`,
+sin resolver referencias ni construir un catálogo.
+
+```text
+bytes JSON
+    -> lector estricto
+    -> JsonDocument
+    -> schema del rol
+    -> mapper de tipos fuertes
+    -> futuro loader de pack
+    -> ContentPackInput
+    -> validación global de CoreRPG
+```
+
 Este target depende de `CoreRPG`, pero `CoreRPG` no enlaza ni expone su stack
 JSON. Un Host que construya `ContentPackInput` por otros medios puede utilizar
-sólo la biblioteca de dominio. La resolución de recursos y la futura conversión
-a tipos fuertes permanecen fuera de la lectura estricta y la validación local de
-schemas.
+sólo la biblioteca de dominio. La apertura y resolución de localizadores, la
+asociación explícita entre localizador y documento, y la formación final de
+`ContentPackInput` permanecen reservadas para un loader futuro.
 
 La biblioteca seguirá Semantic Versioning. Antes de `1.0.0`, la API podrá
 evolucionar mientras se descubre el dominio; alcanzar `1.0.0` requerirá una API

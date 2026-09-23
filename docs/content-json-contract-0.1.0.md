@@ -7,15 +7,13 @@ Este documento define la representación física JSON del Content Contract
 convierten en el modelo lógico C++ existente:
 
 ```text
-documentos JSON
-      |
-      | lectura, validación de forma y conversión a tipos fuertes
-      v
-ContentPackInput
-      |
-      | validación semántica global
-      v
-ContentCatalog
+bytes JSON
+      -> lectura estricta
+      -> JsonDocument
+      -> validación del schema del rol
+      -> conversión a tipos fuertes
+      -> futuro loader y ContentPackInput
+      -> validación semántica global y ContentCatalog
 ```
 
 El contrato físico no modifica las responsabilidades de `ContentManifest`,
@@ -70,7 +68,10 @@ vacíos. `display_name` y `description` aparecen incluso cuando su valor es un
 string vacío. No se utiliza `null` para representar ausencia.
 
 Los campos lógicos se convierten a `ContentManifest`. `resources` y `$schema`
-pertenecen exclusivamente a la representación física.
+pertenecen exclusivamente a la representación física. El resultado físico
+decodificado conserva el `ContentManifest` junto con una lista poseída de strings
+`ResourceLocator`; no introduce los localizadores en el modelo lógico. `$schema`
+se descarta después de validar el documento.
 
 ### Propiedad `$schema` en contenido
 
@@ -111,6 +112,10 @@ Este índice:
 - no aparece en saves;
 - no permanece en `ContentCatalog`;
 - sólo determina qué documentos debe leer el loader.
+
+El decoder puede conservar el orden de autoría del array, pero ese orden no
+empareja documentos con definiciones ni establece prioridad, load order u otra
+semántica. El futuro loader abrirá cada `ResourceLocator` explícito.
 
 El runtime carga exclusivamente los documentos listados. No descubre contenido
 recorriendo directorios y no interpreta el orden del filesystem. Un documento
@@ -253,6 +258,12 @@ La conversión utiliza las fábricas e invariantes existentes para construir
 patrones complejos, como el rango de 32 bits de cada componente de versión o la
 relación entre los extremos de un requisito.
 
+Las operaciones públicas de decoding validan internamente el documento con el
+schema de su rol antes de acceder a sus campos. Un fallo de schema conserva
+`JsonSchemaDiagnostic`; un fallo posterior de conversión produce un diagnóstico
+distinto con código estable, JSON Pointer aproximado y mensaje técnico. La
+validación de schema no sustituye nunca a los parsers y factories del Core.
+
 ### CoreRPG: significado global
 
 CoreRPG continúa validando:
@@ -337,9 +348,9 @@ contra esos schemas embebidos. Una URI no registrada produce un fallo de
 configuración del schema: no existe fallback de red ni búsqueda arbitraria en el
 filesystem.
 
-## Vertical neutral futura
+## Vertical neutral de ejemplo
 
-La primera vertical prevista utilizará exclusivamente contenido neutral:
+La vertical de prueba utiliza exclusivamente contenido neutral:
 
 ```text
 content-packs/
@@ -357,8 +368,9 @@ Contendrá dos definiciones de kind `thing`:
 - `example.test:things/b`, con una referencia a `example.test:things/a` y
   `expected_kind` igual a `thing`.
 
-Esta estructura sólo documenta una vertical futura; esos archivos no forman
-parte de este incremento.
+Estos documentos ejercitan la lectura, validación y conversión a tipos fuertes.
+Todavía no existe un loader de filesystem que forme un `ContentPackInput` a
+partir de ellos.
 
 ## Frontera con payloads y lore
 

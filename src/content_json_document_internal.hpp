@@ -14,4 +14,11 @@ struct JsonDocument::Impl final {
     jsoncons::json value;
 };
 
+class JsonDocumentAccess final {
+public:
+    [[nodiscard]] static const jsoncons::json& value(const JsonDocument& document) noexcept {
+        return document.implementation_->value;
+    }
+};
+
 }  // namespace corerpg::content_json
