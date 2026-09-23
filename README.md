@@ -69,14 +69,19 @@ núcleo portable.
 
 El proyecto se encuentra en su fase de cimentación técnica. Incluye identidad
 de entidades, un estado del mundo mínimo y una infraestructura reproducible de
-tests. También dispone de una primera base en memoria del contrato genérico de
-Content Packs: `PackId`, `DefinitionId`, `SemanticVersion`,
-`VersionRequirement`, `PackDependency`, `ContentManifest`, `ResourceKind`,
-`ResourceDefinition` y `ContentCatalog`.
+tests. El contrato lógico declarativo de Content Packs aporta identidades
+estables, versiones, compatibilidad, manifests, dependencias directas,
+definiciones y un `ContentCatalog` inmutable cuya construcción realiza la
+validación semántica global de forma atómica y determinista.
 
-El catálogo es lógicamente inmutable, mantiene un orden determinista y detecta
-los `DefinitionId` duplicados. Todavía no hay sistemas de gameplay ni Content
-Packs reales implementados.
+La biblioteca opcional `CoreRPGContentJson` implementa el Content Contract JSON
+`0.1.0`: lectura JSON estricta, validación local mediante JSON Schema Draft
+2020-12, conversión a los tipos fuertes del Core, carga de packs físicos y
+construcción de catálogos desde raíces explícitas. `ContentCatalog::create()`
+continúa siendo la autoridad semántica global. El target principal `CoreRPG`
+permanece independiente de JSON y filesystem.
+
+Todavía no hay sistemas de gameplay ni Content Packs reales implementados.
 
 ## Compilación
 

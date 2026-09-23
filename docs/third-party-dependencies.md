@@ -2,9 +2,9 @@
 
 ## jsoncons
 
-La biblioteca opcional `CoreRPGContentJson` utiliza
-[jsoncons](https://github.com/danielaparker/jsoncons) para la futura
-integración del formato JSON de Content Packs.
+La biblioteca opcional `CoreRPGContentJson` utiliza actualmente
+[jsoncons](https://github.com/danielaparker/jsoncons) como dependencia privada
+para la integración del formato JSON de Content Packs.
 
 - Versión: `v1.9.0`.
 - Commit fijado: `bcb44594c50c495ee1e690602cdd71455942ad0e`.

@@ -157,7 +157,7 @@ No son válidos:
 - caracteres Unicode;
 - extensiones distintas de `.json`.
 
-El loader deberá resolver el localizador sin permitir que el resultado escape
+El loader resuelve el localizador sin permitir que el resultado escape
 de la raíz del pack.
 
 La raíz suministrada se canonicaliza. Si es un symlink, su destino se acepta
@@ -324,17 +324,17 @@ CoreRPG continúa validando:
 - autorización cross-pack mediante dependencia directa;
 - atomicidad todo-o-nada.
 
-Los schemas no duplicarán la semántica global ya implementada por CoreRPG.
+Los schemas no duplican la semántica global implementada por CoreRPG.
 
 ## Campos desconocidos y claves duplicadas
 
 Un campo desconocido en cualquier objeto normativo hace que el documento sea
-inválido. Los schemas utilizarán `additionalProperties: false` en los objetos
+inválido. Los schemas utilizan `additionalProperties: false` en los objetos
 simples de esta versión. Errores como `pack_verison` no se aceptan ni se ignoran.
 
 Cualquier objeto JSON con dos propiedades del mismo nombre también es inválido.
-No se aplica first-wins ni last-wins. La futura capa de lectura debe detectarlo
-durante el parsing, antes de que un DOM pueda descartar una aparición. JSON
+No se aplica first-wins ni last-wins. La capa de lectura estricta lo detecta
+durante el parsing, antes de que el DOM pueda descartar una aparición. JSON
 Schema no es responsable de recuperar información que el parser haya perdido.
 
 ## Orden y duplicados en arrays
@@ -358,7 +358,7 @@ Los requisitos de dependencias duplicadas no se fusionan.
 
 ## Schemas, IDs y versionado
 
-Los schemas previstos se organizarán así:
+Los schemas se organizan así:
 
 ```text
 schemas/
@@ -369,15 +369,15 @@ schemas/
       resource-definition.schema.json
 ```
 
-`types.schema.json` contendrá definiciones reutilizables para no duplicar
-gramáticas y estructuras. Cada schema declarará JSON Schema Draft 2020-12.
+`types.schema.json` contiene definiciones reutilizables para no duplicar
+gramáticas y estructuras. Cada schema declara JSON Schema Draft 2020-12.
 
 Content Contract `0.1.0` corresponde exclusivamente a los schemas bajo
 `schemas/content/0.1.0/`. Una versión futura utilizará otro directorio, por
 ejemplo `0.2.0/` o `1.0.0/`. Las versiones históricas serán inmutables y no
 existirá un alias `latest` normativo.
 
-Los `$id` utilizarán este namespace:
+Los `$id` utilizan este namespace:
 
 ```text
 https://robdor80.github.io/CoreRPG/schemas/content/0.1.0/
@@ -410,7 +410,7 @@ content-packs/
         c.json
 ```
 
-Contendrá dos definiciones de kind `thing`:
+Contiene tres definiciones de kind `thing`:
 
 - `example.test:things/a`, sin referencias;
 - `example.test:things/b`, con una referencia a `example.test:things/a` y

@@ -56,7 +56,7 @@ Cuando el contenido lógico necesite asociarse a una representación, utilizará
 identificadores abstractos. Cada Host resolverá esos identificadores a sus
 recursos concretos. El Core no conocerá formatos como `.uasset`.
 
-Los Content Packs serán inicialmente declarativos. Las diferencias entre
+Los Content Packs son inicialmente declarativos. Las diferencias entre
 universos deben expresarse mediante datos, reglas configurables y capacidades
 del Core. Código nativo cargable, scripting, plugins ejecutables y hot reload de
 código quedan fuera del alcance hasta que exista un caso real que los
@@ -301,14 +301,15 @@ localizadores cumplen entonces su función física y no se conservan en el model
 lógico. Los archivos no listados se ignoran.
 
 ```text
-bytes JSON
-    -> lector estricto
+raíces de pack explícitas
+    -> carga física guiada por manifest.json y resources
+    -> lectura JSON estricta
     -> JsonDocument
-    -> schema del rol
-    -> mapper de tipos fuertes
-    -> loader físico guiado por manifest.json y resources
-    -> ContentPackInput
-    -> validación global de CoreRPG
+    -> JSON Schema Draft 2020-12 del rol
+    -> mapping a tipos fuertes
+    -> ContentPackInput[]
+    -> ContentCatalog::create
+    -> ContentCatalog validado e inmutable
 ```
 
 Este target depende de `CoreRPG`, pero `CoreRPG` no enlaza ni expone su stack
@@ -351,7 +352,7 @@ pública y una política de compatibilidad explícitas.
 - Namespace raíz `corerpg`.
 - Cero dependencias externas en `CoreRPG`; las integraciones opcionales aíslan
   sus dependencias en targets separados.
-- GoogleTest y CTest cuando se introduzca el primer conjunto de tests.
+- GoogleTest y CTest para los tests automatizados.
 - `clang-format` y adopción progresiva de `clang-tidy`.
 - Compatibilidad prevista con MSVC, Clang y GCC.
 - Semantic Versioning para las versiones publicadas del Core.
@@ -371,7 +372,7 @@ necesidades diferentes.
 Quedan expresamente pospuestos:
 
 - sistemas completos de gameplay;
-- loaders y formatos de Content Packs;
+- payloads y schemas específicos de dominio para Content Packs;
 - persistencia y migraciones;
 - ABI dinámica estable;
 - scripting y plugins ejecutables;
