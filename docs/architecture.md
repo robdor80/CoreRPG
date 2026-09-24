@@ -249,12 +249,19 @@ puente general entre ambos, y este contrato no intenta diseñarlo de forma
 anticipada.
 
 `ResourceKind` identifica una clase lógica de recurso mediante la gramática
-`[a-z][a-z0-9_-]*`. Es un identificador canónico, no una ruta, una extensión ni un
-schema concreto, y nunca se deduce de `DefinitionId`.
+`[a-z][a-z0-9_-]*`. Es un identificador canónico abierto, no una ruta, una
+extensión ni un schema concreto, y nunca se deduce de `DefinitionId`. Distingue
+la clase declarada y permite validar el tipo esperado de una referencia, pero
+no implementa por sí mismo un tipo de dominio. CoreRPG no mantiene un registry
+global de kinds o codecs; esa decisión sólo se reabrirá ante consumidores
+concretos que demuestren necesitarlo.
 
 `ResourceDefinition` es el sobre mínimo e inmutable de una definición: contiene
-exclusivamente su `DefinitionId` y su `ResourceKind`, ambos poseídos por valor. Los
-payloads y schemas específicos quedan fuera de este contrato.
+exclusivamente su `DefinitionId` y su `ResourceKind`, ambos poseídos por valor.
+El catálogo puede validar identidad, ownership, clasificación y relaciones,
+pero la definición no transporta propiedades de dominio. No existe todavía un
+payload genérico o tipado; los payloads y schemas específicos quedan fuera de
+este contrato.
 
 `ContentCatalog` posee un conjunto inmutable de definiciones en memoria. La
 identidad completa debe ser única incluso si dos entradas declaran clases distintas.
@@ -263,11 +270,19 @@ de entrada mediante el orden byte a byte de `DefinitionId` y usa ese orden para
 búsqueda binaria y recorrido determinista. No define políticas de override, merge,
 prioridad ni last-wins.
 
+Su API permite comprobar existencia, buscar por `DefinitionId`, consultar el
+`ResourceKind` y enumerar todas las definiciones en orden canónico. No expone
+payloads de dominio ni modelos tipados específicos. No se añaden índices o
+queries auxiliares mientras no exista un consumidor que los necesite.
+
 La construcción del catálogo recibe `ContentDefinitionInput` temporales. Cada uno
 asocia una `ResourceDefinition` candidata con referencias obligatorias descritas por
 un `DefinitionId` target y el `ResourceKind` esperado, sin modificar el sobre mínimo
 de la definición publicada. Resolver una referencia significa comprobar en memoria
 que el target existe y que su tipo coincide; no crea punteros persistentes.
+Tampoco conserva un grafo resuelto dentro del catálogo. La resolución por ID
+preserva la inmutabilidad, evita acoplar consumidores al almacenamiento y deja
+una futura ampliación de metadatos de relación para cuando exista un caso real.
 
 El staging es interno y la construcción tiene semántica todo-o-nada: sólo publica un
 `ContentCatalog` completo cuando no existen IDs duplicados, referencias ausentes ni
@@ -306,6 +321,31 @@ comprueba después de eliminar ambigüedades de identidad y ownership, pero ante
 de interpretar dependencias o referencias. CoreRPG `0.1.0` y Content Contract
 `0.1.0` coinciden actualmente de forma circunstancial: son ejes independientes
 y ninguno se deriva del otro.
+
+Una futura ampliación estructural de los documentos de contenido requerirá una
+nueva versión explícita del Content Contract y sus schemas. El número y la
+política concreta se decidirán junto con esa ampliación; no se derivan de la
+versión del Core ni de la de un pack.
+
+### Contenido tipado todavía no definido
+
+El Content Contract `0.1.0` es un envelope de identidad, clasificación,
+referencias y compatibilidad, no un modelo de dominio. La ausencia de
+propiedades adicionales es deliberada: todavía no existe un primer dominio y
+un consumidor cuyas invariantes permitan diseñar una interfaz correcta.
+
+Por ello no se incorporan por ahora `data: {}`, property bags recursivas, un
+DOM JSON dentro del Core, `std::any`, blobs opacos, un `variant` cerrado con
+todos los tipos RPG, un registry global de kinds o codecs ni una jerarquía
+virtual de payloads. Estas alternativas no quedan prohibidas para siempre;
+sólo podrán reabrirse ante una necesidad concreta, evaluando entonces tipado,
+ownership, validación, determinismo, interoperabilidad y evolución.
+
+JSON, filesystem y `CoreRPGContentJson` forman la adaptación física;
+`ContentPackInput` y `ContentCatalog` forman el modelo lógico genérico. Una
+futura extensión se diseñará primero como modelo lógico y después como
+representación JSON. El formato físico no determinará el dominio ni filtrará
+jsoncons a la API de CoreRPG.
 
 La representación física inicial de ese contrato utiliza JSON UTF-8 y JSON
 Schema Draft 2020-12. Su formato de manifest, índice explícito de recursos,
@@ -397,6 +437,14 @@ el resultado detallado del loader; un fallo global conserva directamente los
 primer fallo físico observado durante la iteración y no establece prioridad,
 override, precedencia ni orden semántico de carga.
 
+La selección de packs continúa perteneciendo al caller, que entrega raíces
+explícitas. Permanecen fuera del alcance actual discovery automático, un
+registry de packs instalados, traducción implícita de `PackId` a filesystem,
+auto-load de dependencias, search paths, ZIP, HTTP, hot reload, overrides,
+prioridades, patch packs, merge, last-wins, scripting y plugins ejecutables.
+No se afirma que estas capacidades no puedan existir en el futuro; reabrirlas
+requiere una necesidad concreta y una decisión arquitectónica explícita.
+
 La biblioteca seguirá Semantic Versioning. Antes de `1.0.0`, la API podrá
 evolucionar mientras se descubre el dominio; alcanzar `1.0.0` requerirá una API
 pública y una política de compatibilidad explícitas.
@@ -440,18 +488,53 @@ Quedan expresamente pospuestos:
 Estas fronteras permiten implementar una primera vertical pequeña sin cerrar
 prematuramente decisiones que todavía no cuentan con casos de uso reales.
 
+## Frontera entre motor genérico y dominio
+
+La evolución del contenido distingue tres niveles conceptuales:
+
+1. **Motor genérico:** identidad, catálogo, compatibilidad, validación,
+   `WorldState` y reglas autoritativas.
+2. **Posible modelo RPG reutilizable:** tipos concretos sólo cuando exista
+   evidencia de que varios juegos pueden compartir sus invariantes.
+3. **Nimroel:** canon y contenido propios del universo, mantenidos fuera de
+   CoreRPG y expresados mediante su Content Pack.
+
+El nombre CoreRPG no obliga al motor genérico a conocer conceptos como
+`Region`, `Settlement`, `PoliticalEntity`, `Culture`, `Species`, `Character` o
+`Faction`; tampoco se decide todavía si alguno pertenecerá a una capa RPG
+reutilizable. Antes de diseñar modelos destinados a contenido real se estudiará
+una muestra representativa del lore del repositorio separado
+`robdor80/Videojuego_Nimroel` para descubrir requisitos. Esa revisión servirá
+para decidir qué pertenece a cada nivel, no para copiar canon de Nimroel dentro
+del Core ni de sus fixtures.
+
 ## Interpretación incremental del roadmap
 
 La infraestructura mínima existente no completa por adelantado las fases
 funcionales posteriores:
 
+- **4.2 — content pack contract:** construyó sustancialmente la infraestructura
+  genérica del Content Pack system: identidades y versiones fuertes, manifests,
+  compatibilidad, dependencias, referencias, catálogo atómico, diagnósticos
+  deterministas y la adaptación JSON física aislada.
 - **4.3 — minimal universe-agnostic core:** cierra el contrato mínimo de
   identidad viva, estado, revisión, determinismo y fronteras de mutación.
-- **4.4 — content pack system:** extiende el sistema de contenido desde lo ya
-  cerrado en 4.2; no repite identidades, manifests, catálogo ni carga física.
-- **4.5 — Generic World State:** desarrolla un estado vivo genérico real más
-  allá del contador mínimo actual.
+- **4.4 — content pack system:** reconcilia y cierra el alcance del sistema ya
+  construido sin repetir 4.2 ni inventar payloads o modelos de dominio.
+- **4.5 — Generic World State:** comienza cuando `WorldState` adquiere registros
+  vivos y desarrolla un estado genérico real más allá del contador mínimo
+  actual. Bootstrap, spawning, templates, archetypes, provenance viva y el
+  puente general `DefinitionId` -> `EntityId` no pertenecen a 4.4.
 - **4.6 — RNG + rules:** define ownership, streams, política de semillas y
   reglas funcionales sobre la infraestructura determinista existente.
 - **4.10 — actions + simulation:** introduce el modelo general de acciones y
   simulación del que `RollAction` es sólo una vertical inicial.
+
+La frontera entre 4.4 y 4.5 queda así fijada: 4.4 termina en la definición y
+validación de contenido declarativo; 4.5 empieza cuando ese contenido pueda
+relacionarse con registros vivos de un Generic World State real.
+
+El contenido tipado de dominio se introducirá cuando exista un primer modelo
+concreto validado y un consumidor real. En ese momento se decidirá si encaja en
+una fase existente o si exige un ajuste explícito del roadmap; no se reserva
+ahora un número nuevo.

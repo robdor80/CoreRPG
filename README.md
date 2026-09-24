@@ -91,12 +91,22 @@ construcción de catálogos desde raíces explícitas. `ContentCatalog::create()
 continúa siendo la autoridad semántica global. El target principal `CoreRPG`
 permanece independiente de JSON y filesystem.
 
+Este contrato es deliberadamente un envelope de identidad, clasificación,
+referencias y compatibilidad. Una `ResourceDefinition` contiene esencialmente
+su `DefinitionId` y su `ResourceKind`: el sistema puede validar ownership y
+relaciones, pero todavía no transporta propiedades de dominio ni ofrece
+payloads genéricos o tipados. Esa extensión se diseñará sólo cuando exista un
+primer modelo concreto validado y un consumidor real.
+
 Todavía no hay un estado del mundo genérico completo, sistemas funcionales de
 reglas, acciones o simulación, persistencia, conocimiento, población, gameplay
-ni Content Packs reales. La fase 4.3 cierra el contrato del núcleo mínimo; 4.4
-extenderá el sistema de contenido sin repetir 4.2, 4.5 desarrollará el estado
-vivo genérico, 4.6 abordará RNG y reglas funcionales y 4.10 el modelo general de
-acciones y simulación.
+ni Content Packs reales. La fase 4.2 construyó sustancialmente la
+infraestructura genérica del Content Pack system y 4.3 cerró el contrato del
+núcleo mínimo. La fase 4.4 reconcilia y cierra el alcance de contenido sin
+duplicar 4.2; 4.5 comienza cuando `WorldState` evoluciona hacia un estado vivo
+genérico real. El puente general `DefinitionId` -> `EntityId` no pertenece a
+4.4. Las fases 4.6 y 4.10 abordarán respectivamente RNG y reglas funcionales, y
+el modelo general de acciones y simulación.
 
 ## Compilación
 
