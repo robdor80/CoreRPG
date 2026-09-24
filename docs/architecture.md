@@ -33,8 +33,10 @@ responsabilidades se encuentran las entidades, acciones, reglas, relaciones,
 tiempo, simulación, percepción, persistencia y generación procedural.
 
 Sólo el Core puede aceptar una mutación del mundo. Los hosts y herramientas
-interactúan mediante comandos y consultas; no reciben acceso para modificar el
-estado directamente.
+solicitan operaciones y consultas; no reciben acceso mutable al almacenamiento
+interno para saltarse sus invariantes. Las futuras acciones y reglas validarán
+y aplicarán cambios mediante APIs controladas del Core. Esta es una frontera
+arquitectónica: todavía no existe un framework general de comandos o acciones.
 
 CoreRPG no contiene conceptos de un universo concreto y no depende de sistemas
 de presentación, red o plataforma.
@@ -131,11 +133,23 @@ mantiene separado de `WorldState`. Una entrada inválida o un rango con un únic
 valor no avanza el RNG. La primera `RollAction` sólo produce un resultado y no
 modifica estado persistente, por lo que tampoco cambia la revisión del mundo.
 
+`DeterministicRandom` proporciona estado explícito, secuencia determinista,
+`uniform_closed()`, restauración mediante `state()` y vectores dorados de test.
+Esta es infraestructura mínima, no la fase funcional de RNG y reglas: ownership,
+streams, política de semillas y consumo entre reglas permanecen para 4.6.
+
+`RollAction` es una vertical mínima de foundation. Demuestra input estructurado,
+validación contra `WorldState`, consumo determinista de RNG, resultado explícito
+y fallo sin mutación persistente. No es el framework general de acciones: no
+existen todavía una clase base `Action`, un sistema de comandos, dispatcher,
+registry, efectos generales ni framework de simulación. Ese modelo corresponde
+principalmente a 4.10.
+
 ## Identidad
 
 El modelo distingue tres tipos de identidad no intercambiables:
 
-- `EntityId` identifica una entidad viva dentro de una campaña.
+- `EntityId` identifica una entidad viva dentro de un `WorldState`.
 - `PackId` identifica de forma estable un linaje de Content Pack.
 - `DefinitionId` identifica una definición lógica aportada por un Content Pack.
 
@@ -152,7 +166,46 @@ semántico, aunque cambien nombres visibles o versiones del pack.
 
 Dentro de cada `WorldState`, los IDs de entidades vivas se asignan desde `1` de
 forma monotónica y determinista. El valor `0` representa un ID inválido y los
-IDs emitidos no se reutilizan durante la vida de ese estado del mundo.
+IDs emitidos no se reutilizan durante la vida de ese estado del mundo. No existe
+eliminación de entidades actualmente.
+
+`EntityId` es un wrapper fuerte sobre `std::uint64_t`. Su método `is_valid()`
+indica únicamente que el valor es distinto de `0`; no demuestra que la entidad
+exista en un mundo. La pertenencia se consulta mediante
+`WorldState::contains()`. Un ID sólo tiene significado contextual respecto de
+un `WorldState`: dos mundos independientes pueden emitir correctamente
+`EntityId{1}` y esos valores no constituyen una identidad global.
+
+`DefinitionId` y `EntityId` también separan contenido e instancia. El primero
+identifica de forma estable una definición declarativa; el segundo, una entidad
+viva en un mundo. Todavía no existe una relación general de instanciación
+`DefinitionId` -> `EntityId`, ni provenance de instancia, spawning, templates o
+archetypes. Esta ausencia es deliberada hasta que una fase posterior demuestre
+qué contrato necesita.
+
+## Estado vivo mínimo
+
+El `WorldState` actual no es todavía el Generic World State completo. Mantiene
+la generación monotónica de `EntityId`, reconoce como existentes los IDs ya
+emitidos y expone `entity_count()` y `revision()`. No contiene registros de
+entidad, componentes, propiedades, relaciones, localizaciones, inventarios,
+lifecycle, eliminación ni provenance de definiciones.
+
+`WorldState::revision()` es una versión técnica observable del estado
+persistente. Un mundo nuevo comienza en `0`; cada `create_entity()` aceptado la
+incrementa exactamente una vez. Una creación fallida, una consulta y la
+`RollAction` actual no la modifican. No representa tiempo del mundo, tick,
+turno, fecha ni calendario.
+
+Las futuras extensiones conservarán el contrato de mutación: una operación
+persistente aceptada incrementa la revisión exactamente una vez y una operación
+rechazada preserva `WorldState`. Esto fija la frontera de autoridad sin afirmar
+que ya exista el futuro sistema general de acciones.
+
+Actualmente `entity_count()` coincide con el último ID emitido porque sólo
+existe creación y no existe eliminación. Es una consecuencia del modelo mínimo,
+no una invariante permanente; ambas magnitudes podrán separarse cuando una fase
+posterior introduzca lifecycle.
 
 ## Versiones independientes
 
@@ -189,6 +242,11 @@ Estos metadatos no forman parte de la identidad ni intervienen en decisiones de
 compatibilidad.
 
 ## Catálogo de contenido en memoria
+
+`ContentCatalog` representa definiciones declarativas validadas e inmutables;
+`WorldState` representa la realidad viva de una partida. Todavía no existe el
+puente general entre ambos, y este contrato no intenta diseñarlo de forma
+anticipada.
 
 `ResourceKind` identifica una clase lógica de recurso mediante la gramática
 `[a-z][a-z0-9_-]*`. Es un identificador canónico, no una ruta, una extensión ni un
@@ -381,3 +439,19 @@ Quedan expresamente pospuestos:
 
 Estas fronteras permiten implementar una primera vertical pequeña sin cerrar
 prematuramente decisiones que todavía no cuentan con casos de uso reales.
+
+## Interpretación incremental del roadmap
+
+La infraestructura mínima existente no completa por adelantado las fases
+funcionales posteriores:
+
+- **4.3 — minimal universe-agnostic core:** cierra el contrato mínimo de
+  identidad viva, estado, revisión, determinismo y fronteras de mutación.
+- **4.4 — content pack system:** extiende el sistema de contenido desde lo ya
+  cerrado en 4.2; no repite identidades, manifests, catálogo ni carga física.
+- **4.5 — Generic World State:** desarrolla un estado vivo genérico real más
+  allá del contador mínimo actual.
+- **4.6 — RNG + rules:** define ownership, streams, política de semillas y
+  reglas funcionales sobre la infraestructura determinista existente.
+- **4.10 — actions + simulation:** introduce el modelo general de acciones y
+  simulación del que `RollAction` es sólo una vertical inicial.

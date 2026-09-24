@@ -67,12 +67,22 @@ núcleo portable.
 
 ## Estado actual
 
-El proyecto se encuentra en su fase de cimentación técnica. Incluye identidad
-de entidades, un estado del mundo mínimo y una infraestructura reproducible de
-tests. El contrato lógico declarativo de Content Packs aporta identidades
-estables, versiones, compatibilidad, manifests, dependencias directas,
-definiciones y un `ContentCatalog` inmutable cuya construcción realiza la
-validación semántica global de forma atómica y determinista.
+El proyecto se encuentra en su fase de cimentación técnica. Su núcleo vivo es
+deliberadamente mínimo: `EntityId` representa identidad dentro de un
+`WorldState`, que actualmente sólo emite IDs monotónicos, reconoce los ya
+emitidos, cuenta entidades y expone una revisión técnica. Un ID distinto de
+cero es válido como valor, pero su existencia siempre se consulta respecto de
+un mundo concreto; los IDs no son globalmente únicos entre mundos.
+
+`DeterministicRandom` y `RollAction` forman una primera vertical reproducible
+de input estructurado, validación y resultado explícito. Son infraestructura de
+foundation, no los sistemas completos de reglas y acciones. El contrato lógico
+declarativo de Content Packs aporta identidades estables, versiones,
+compatibilidad, manifests, dependencias directas, definiciones y un
+`ContentCatalog` inmutable cuya construcción realiza la validación semántica
+global de forma atómica y determinista. Las definiciones declarativas y las
+entidades vivas usan identidades diferentes y todavía no existe un puente
+general de instanciación entre ambas.
 
 La biblioteca opcional `CoreRPGContentJson` implementa el Content Contract JSON
 `0.1.0`: lectura JSON estricta, validación local mediante JSON Schema Draft
@@ -81,7 +91,12 @@ construcción de catálogos desde raíces explícitas. `ContentCatalog::create()
 continúa siendo la autoridad semántica global. El target principal `CoreRPG`
 permanece independiente de JSON y filesystem.
 
-Todavía no hay sistemas de gameplay ni Content Packs reales implementados.
+Todavía no hay un estado del mundo genérico completo, sistemas funcionales de
+reglas, acciones o simulación, persistencia, conocimiento, población, gameplay
+ni Content Packs reales. La fase 4.3 cierra el contrato del núcleo mínimo; 4.4
+extenderá el sistema de contenido sin repetir 4.2, 4.5 desarrollará el estado
+vivo genérico, 4.6 abordará RNG y reglas funcionales y 4.10 el modelo general de
+acciones y simulación.
 
 ## Compilación
 
