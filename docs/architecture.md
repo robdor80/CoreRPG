@@ -74,6 +74,125 @@ Un adaptador futuro de Unreal traducirá sus tipos y operaciones a la API
 portable. Ese adaptador pertenecerá al Host o a un proyecto de integración, no
 al núcleo.
 
+## Arquitectura multiuniverso
+
+CoreRPG es un **único núcleo autoritativo, portable, determinista y reutilizable**
+destinado a servir a universos y juegos distintos. Nimroel y Star Trek son desde
+ahora los dos consumidores reales de referencia para validar sus abstracciones,
+pero ninguno de los dos define por sí solo el dominio del Core.
+
+La regla de control es:
+
+> Si para añadir un nuevo juego hay que introducir en CoreRPG nombres, tipos o
+> reglas propias de ese universo, la separación arquitectónica ha fallado.
+
+El mismo núcleo debe poder sostener experiencias superficiales muy diferentes.
+El Content Pack describe el universo y sus posibilidades lógicas; el Host
+presenta la experiencia e integra plataforma y servicios externos; CoreRPG
+mantiene el estado autoritativo, valida solicitudes, aplica reglas y acepta o
+rechaza mutaciones.
+
+### Tres niveles de responsabilidad
+
+Una necesidad nueva no se incorpora automáticamente al Core sólo por parecer
+genérica. Se clasifica mediante evidencia de consumidores reales:
+
+1. **Núcleo genérico:** capacidades fundamentales para identidad, autoridad,
+   estado vivo, determinismo, reglas, acciones, tiempo, conocimiento,
+   persistencia o simulación que sean independientes de cualquier universo y
+   necesarias para el motor común.
+2. **Sistema RPG reutilizable:** una capacidad compartida por varios juegos con
+   invariantes realmente equivalentes. No se crea especulativamente.
+3. **Mecánica específica de juego:** comportamiento que sólo tiene sentido bajo
+   el canon o las reglas de un universo concreto.
+
+Por tanto, la pregunta no es sólo "¿esto es genérico?", sino también "¿es una
+responsabilidad fundamental del motor común y existe una necesidad real?". Un
+sistema como crafting, reputación o economía compleja puede ser agnóstico de
+universo sin pertenecer necesariamente al núcleo.
+
+### Prohibición de lógica por juego dentro del núcleo
+
+CoreRPG no contendrá ramas del tipo:
+
+```cpp
+if (game == STAR_TREK) { /* ... */ }
+if (game == NIMROEL)   { /* ... */ }
+```
+
+Tampoco utilizará como tipos fundamentales conceptos como `WarpDrive`,
+`PhotonTorpedo`, `Klingon`, `Dragon`, `Treskal` o `Mana`. Las
+necesidades concretas deben reducirse a contratos suficientemente generales o
+permanecer fuera del núcleo.
+
+### Mecánicas específicas y puntos de extensión
+
+La existencia de varios consumidores demuestra que CoreRPG necesitará a medio
+plazo una frontera formal para mecánicas específicas. Esto **no** autoriza a
+implementar ahora scripting, plugins, registries o una ABI dinámica.
+
+La tecnología de extensión se decidirá cuando exista un caso técnico real.
+Hasta entonces la arquitectura debe conservar una propiedad: una mecánica
+específica nunca obtiene autoridad paralela sobre el mundo.
+
+Conceptualmente:
+
+```text
+Host / juego
+    -> solicita una acción
+    -> lógica específica calcula o propone un resultado
+    -> CoreRPG valida contexto, reglas y efectos
+    -> CoreRPG acepta o rechaza la mutación
+    -> WorldState conserva el estado autoritativo
+```
+
+Una extensión no debe recibir acceso mutable libre al almacenamiento interno de
+`WorldState` para saltarse invariantes. Podrá consultar mediante contratos
+controlados y devolver resultados o efectos estructurados que el Core someta a
+la misma autoridad que cualquier otra operación.
+
+### Content Packs y mecánicas
+
+Los Content Packs continúan siendo declarativos. Describen contenido,
+posibilidades, referencias, capacidades y, cuando el contrato lo permita,
+reglas configurables. No son motores ejecutables.
+
+La lista conceptual de contenido futuro —especies, culturas, personajes,
+lugares, naves, objetos, calendarios, economía, campañas o lore— no implica que
+el Content Contract actual ya pueda representarlo. El contrato JSON `0.1.0`
+sigue siendo deliberadamente un envelope mínimo de identidad, clasificación,
+referencias y compatibilidad. Sus payloads de dominio se diseñarán sólo ante un
+modelo y consumidores reales.
+
+### Validación cruzada desde 4.5
+
+Desde **4.5 — Generic World State**, toda decisión arquitectónica relevante debe
+comprobarse al menos contra Nimroel y Star Trek:
+
+- ¿contiene nombres o supuestos de un universo?
+- ¿representa razonablemente las necesidades de ambos sin canon específico?
+- ¿se está generalizando antes de tener invariantes compartidas?
+- ¿pertenece al Core, a un sistema reutilizable, a datos declarativos o a una
+  extensión específica?
+- ¿CoreRPG conserva la autoridad sobre las mutaciones?
+- ¿el Host sigue siendo presentación, integración e interacción?
+- ¿el Content Pack sigue siendo declarativo?
+- ¿algún repositorio de juego está creando un segundo motor?
+
+Como prueba adicional de olor arquitectónico podrá utilizarse ocasionalmente un
+tercer universo hipotético para detectar supuestos compartidos accidentalmente
+por Nimroel y Star Trek.
+
+### No duplicación del motor
+
+Los repositorios de juegos pueden contener adaptadores, presentación,
+integraciones y mecánicas exclusivas. No deben implementar un segundo
+`WorldState`, `RulesEngine`, `ActionEngine`, `SimulationCore` o
+`PersistenceCore` que compita con CoreRPG.
+
+La autoridad central permanece en CoreRPG aunque la experiencia final y las
+mecánicas de superficie sean radicalmente distintas.
+
 ## Integración con IA
 
 CoreRPG podrá incorporar en el futuro un Context Builder que produzca vistas
@@ -496,17 +615,21 @@ La evolución del contenido distingue tres niveles conceptuales:
    `WorldState` y reglas autoritativas.
 2. **Posible modelo RPG reutilizable:** tipos concretos sólo cuando exista
    evidencia de que varios juegos pueden compartir sus invariantes.
-3. **Nimroel:** canon y contenido propios del universo, mantenidos fuera de
-   CoreRPG y expresados mediante su Content Pack.
+3. **Universos concretos:** canon, contenido y mecánicas específicas de cada
+   juego, mantenidos fuera del núcleo de CoreRPG y expresados mediante Content
+   Packs, Hosts o futuras extensiones delimitadas según corresponda.
 
 El nombre CoreRPG no obliga al motor genérico a conocer conceptos como
-`Region`, `Settlement`, `PoliticalEntity`, `Culture`, `Species`, `Character` o
-`Faction`; tampoco se decide todavía si alguno pertenecerá a una capa RPG
-reutilizable. Antes de diseñar modelos destinados a contenido real se estudiará
-una muestra representativa del lore del repositorio separado
-`robdor80/Videojuego_Nimroel` para descubrir requisitos. Esa revisión servirá
-para decidir qué pertenece a cada nivel, no para copiar canon de Nimroel dentro
-del Core ni de sus fixtures.
+`Region`, `Settlement`, `PoliticalEntity`, `Culture`, `Species`, `Character`,
+`Starship`, `BridgeStation` o `Faction`; tampoco se decide todavía si alguno
+pertenecerá a una capa RPG reutilizable.
+
+Antes de diseñar modelos destinados a contenido real se estudiarán necesidades
+representativas de consumidores reales. Nimroel y Star Trek son actualmente los
+dos consumidores de referencia y se utilizarán de forma cruzada para descubrir
+invariantes, no para copiar canon de ninguno dentro del Core ni de sus fixtures.
+Cuando sea útil, una tercera ambientación hipotética servirá como prueba de olor
+para detectar supuestos compartidos accidentalmente por ambos.
 
 ## Interpretación incremental del roadmap
 

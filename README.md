@@ -30,7 +30,7 @@ El principio fundamental es:
 
 CoreRPG no es un juego ni un universo narrativo. En particular:
 
-- no es NimroelRPG ni contiene conceptos de Nimroel;
+- no es NimroelRPG ni un juego de Star Trek, ni contiene canon específico de ninguno;
 - no depende de Unreal Engine ni conoce Blueprints o archivos `.uasset`;
 - no contiene UI, renderizado, audio ni assets visuales;
 - no integra directamente proveedores de IA ni realiza operaciones de red;
@@ -139,4 +139,8 @@ dependencias de terceros se registran en
 [`docs/third-party-dependencies.md`](docs/third-party-dependencies.md).
 
 Las fronteras y decisiones iniciales se describen con más detalle en
-[`docs/architecture.md`](docs/architecture.md).
+[`docs/architecture.md`](docs/architecture.md). La política multiuniverso
+adoptada antes de la fase 4.5 se documenta de forma normativa en
+[`docs/multi-universe-architecture.md`](docs/multi-universe-architecture.md) y
+su decisión arquitectónica se registra en
+[`docs/adr/0001-multi-universe-architecture.md`](docs/adr/0001-multi-universe-architecture.md).
