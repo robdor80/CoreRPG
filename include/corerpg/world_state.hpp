@@ -4,14 +4,53 @@
 
 #include <cstdint>
 #include <optional>
+#include <utility>
+#include <vector>
 
 namespace corerpg {
+
+enum class ContainmentStatus : std::uint8_t {
+    entity_not_found,
+    uncontained,
+    contained,
+};
+
+struct ContainmentResult final {
+    ContainmentStatus status{ContainmentStatus::entity_not_found};
+    EntityId container{};
+};
+
+enum class ContainmentChange : std::uint8_t {
+    applied,
+    no_change,
+    entity_not_found,
+    container_not_found,
+    self_containment,
+    cycle_detected,
+    revision_exhausted,
+};
 
 /// Owns the identities and mutation revision of the live campaign state.
 class WorldState final {
 public:
     using size_type = EntityId::value_type;
     using revision_type = std::uint64_t;
+
+    constexpr WorldState() noexcept = default;
+    constexpr WorldState(const WorldState&) = default;
+    constexpr WorldState(WorldState&&) noexcept = default;
+    constexpr WorldState& operator=(WorldState&&) noexcept = default;
+
+    /// Replaces the whole value; allocation failure preserves the previous world.
+    constexpr WorldState& operator=(const WorldState& other) {
+        if (this != &other) {
+            WorldState replacement{other};
+            std::swap(last_entity_id_, replacement.last_entity_id_);
+            std::swap(revision_, replacement.revision_);
+            containment_.swap(replacement.containment_);
+        }
+        return *this;
+    }
 
     /// Creates an entity, or returns an invalid ID if IDs or revisions are exhausted.
     /// Rejection leaves the world unchanged.
@@ -35,9 +74,21 @@ public:
 
     [[nodiscard]] constexpr revision_type revision() const noexcept { return revision_; }
 
+    /// Distinguishes a missing entity, no registered link, and a direct container.
+    /// The container is invalid unless status is contained.
+    [[nodiscard]] ContainmentResult container_of(EntityId entity) const noexcept;
+
+    /// Validates entity, container, self-link, cycle, no-op, then revision, in that order.
+    /// Allocation failures propagate and preserve the entire previous world.
+    [[nodiscard]] ContainmentChange place_entity(EntityId entity, EntityId container);
+
+    /// Removes only this entity's direct link; preserves entities and descendants.
+    [[nodiscard]] ContainmentChange remove_containment(EntityId entity) noexcept;
+
 private:
     EntityId::value_type last_entity_id_{0};
     revision_type revision_{0};
+    std::vector<std::pair<EntityId, EntityId>> containment_;
 };
 
 } // namespace corerpg
