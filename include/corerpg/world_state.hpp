@@ -3,6 +3,7 @@
 #include <corerpg/entity_id.hpp>
 
 #include <cstdint>
+#include <optional>
 
 namespace corerpg {
 
@@ -12,7 +13,8 @@ public:
     using size_type = EntityId::value_type;
     using revision_type = std::uint64_t;
 
-    /// Creates an entity, or returns an invalid ID if the ID space is exhausted.
+    /// Creates an entity, or returns an invalid ID if IDs or revisions are exhausted.
+    /// Rejection leaves the world unchanged.
     [[nodiscard]] EntityId create_entity() noexcept;
 
     [[nodiscard]] constexpr bool contains(EntityId entity_id) const noexcept {
@@ -20,6 +22,17 @@ public:
     }
 
     [[nodiscard]] constexpr size_type entity_count() const noexcept { return last_entity_id_; }
+
+    /// Returns the least existing ID greater than after, or nullopt at the end.
+    /// Zero starts traversal; the cursor need not belong to this world.
+    /// Successive queries are not a snapshot if mutations occur between them.
+    [[nodiscard]] constexpr std::optional<EntityId> next_entity_id(EntityId after) const noexcept {
+        if (after.value() >= last_entity_id_) {
+            return std::nullopt;
+        }
+        return EntityId{after.value() + 1U};
+    }
+
     [[nodiscard]] constexpr revision_type revision() const noexcept { return revision_; }
 
 private:

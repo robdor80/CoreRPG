@@ -310,6 +310,21 @@ emitidos y expone `entity_count()` y `revision()`. No contiene registros de
 entidad, componentes, propiedades, relaciones, localizaciones, inventarios,
 lifecycle, eliminación ni provenance de definiciones.
 
+El Incremento 1 de 4.5 refuerza estos fundamentos y añade
+`next_entity_id(EntityId after)`. Devuelve por valor el menor ID existente
+estrictamente superior al cursor, o `std::nullopt` si no hay otro. El cursor
+`EntityId{0}` inicia el recorrido y no necesita pertenecer al mundo. El orden
+es ascendente por `EntityId`, sin depender de memoria, hashes, RNG ni contenido.
+La consulta no crea entidades ni modifica el contador o la revisión, no expone
+almacenamiento interno y no materializa una lista completa.
+
+Las consultas sucesivas no constituyen un snapshot: una creación intercalada
+puede aparecer en la siguiente consulta, incluso después de haber observado un
+fin de recorrido. No hay concurrencia, locks ni snapshots. La implementación
+aprovecha el intervalo implícito actual, pero ese intervalo no forma parte del
+contrato público de enumeración. Un cursor con el máximo valor de `uint64_t`
+devuelve ausencia sin desbordar.
+
 `WorldState::revision()` es una versión técnica observable del estado
 persistente. Un mundo nuevo comienza en `0`; cada `create_entity()` aceptado la
 incrementa exactamente una vez. Una creación fallida, una consulta y la
@@ -320,6 +335,25 @@ Las futuras extensiones conservarán el contrato de mutación: una operación
 persistente aceptada incrementa la revisión exactamente una vez y una operación
 rechazada preserva `WorldState`. Esto fija la frontera de autoridad sin afirmar
 que ya exista el futuro sistema general de acciones.
+
+La creación comprueba por separado el agotamiento de IDs y de revisión antes
+de modificar ninguno de los dos contadores. El máximo de `uint64_t` es un ID
+válido emitible si todavía hay revisión disponible; la siguiente creación se
+rechaza con `EntityId{0}` y conserva ambos contadores. Si la revisión ya es
+máxima, se rechaza igualmente aunque queden IDs. No hay wraparound ni cambios
+publicados sin revisión. `create_entity()` conserva `noexcept` y no asigna
+memoria dinámica.
+
+Actualmente ambos contadores avanzan juntos, por lo que el agotamiento
+independiente de revisión no es alcanzable mediante la API pública. Su chequeo
+prepara futuras mutaciones sin emisión de identidad; no corrige un overflow
+actualmente alcanzable. Los tests ejercitan los límites directamente sobre la
+misma transición numérica interna que utiliza producción, sin setters ni APIs
+de restauración públicos. No construyen un `WorldState` público agotado.
+
+Este incremento no añade estado individual de gameplay ni contención entre
+entidades. La Fase 4.5 permanece abierta; la primera capacidad de estado vivo
+y la integración final pertenecen a los siguientes incrementos.
 
 Actualmente `entity_count()` coincide con el último ID emitido porque sólo
 existe creación y no existe eliminación. Es una consecuencia del modelo mínimo,

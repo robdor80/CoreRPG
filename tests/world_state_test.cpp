@@ -1,12 +1,16 @@
 #include <corerpg/definition_id.hpp>
 #include <corerpg/entity_id.hpp>
+#include <corerpg/random.hpp>
 #include <corerpg/world_state.hpp>
+
+#include "../src/world_state_internal.hpp"
 
 #include <gtest/gtest.h>
 
 #include <array>
 #include <concepts>
 #include <cstddef>
+#include <limits>
 #include <type_traits>
 
 namespace {
@@ -103,6 +107,123 @@ TEST(WorldStateTest, RevisionChangesOnlyAfterMutations) {
 
     static_cast<void>(world.create_entity());
     EXPECT_EQ(world.revision(), 2U);
+}
+
+TEST(WorldStateCreationTest, EachCounterCanReachItsMaximumWithoutWrapping) {
+    constexpr auto maximum = std::numeric_limits<corerpg::EntityId::value_type>::max();
+    const std::array initial_states{
+        std::array<corerpg::EntityId::value_type, 2>{maximum - 1U, 7U},
+        std::array<corerpg::EntityId::value_type, 2>{7U, maximum - 1U},
+        std::array<corerpg::EntityId::value_type, 2>{maximum - 1U, maximum - 1U},
+    };
+
+    for (const auto& initial : initial_states) {
+        SCOPED_TRACE(::testing::Message() << "last ID=" << initial[0]
+                                        << ", revision=" << initial[1]);
+        auto last_entity_id = initial[0];
+        auto revision = initial[1];
+        const auto result = corerpg::detail::advance_entity_creation(last_entity_id, revision);
+
+        EXPECT_TRUE(result.is_valid());
+        EXPECT_EQ(result.value(), initial[0] + 1U);
+        EXPECT_EQ(last_entity_id, initial[0] + 1U);
+        EXPECT_EQ(revision, initial[1] + 1U);
+
+        EXPECT_FALSE(corerpg::detail::advance_entity_creation(last_entity_id, revision).is_valid());
+        EXPECT_EQ(last_entity_id, initial[0] + 1U);
+        EXPECT_EQ(revision, initial[1] + 1U);
+    }
+}
+
+TEST(WorldStateCreationTest, ExhaustedIdOrRevisionRejectsWithoutChangingEitherCounter) {
+    constexpr auto maximum = std::numeric_limits<corerpg::EntityId::value_type>::max();
+    const std::array initial_states{
+        std::array<corerpg::EntityId::value_type, 2>{maximum, 0U},
+        std::array<corerpg::EntityId::value_type, 2>{0U, maximum},
+        std::array<corerpg::EntityId::value_type, 2>{maximum, maximum},
+    };
+
+    for (const auto& initial : initial_states) {
+        SCOPED_TRACE(::testing::Message() << "last ID=" << initial[0]
+                                        << ", revision=" << initial[1]);
+        auto last_entity_id = initial[0];
+        auto revision = initial[1];
+        for (int attempt = 0; attempt < 2; ++attempt) {
+            const auto result = corerpg::detail::advance_entity_creation(last_entity_id, revision);
+            EXPECT_EQ(result, corerpg::EntityId{});
+            EXPECT_EQ(last_entity_id, initial[0]);
+            EXPECT_EQ(revision, initial[1]);
+        }
+    }
+}
+
+TEST(WorldStateTest, EmptyWorldHasNoNextEntityForAnyCursor) {
+    const corerpg::WorldState world;
+    const std::array cursors{
+        corerpg::EntityId{}, corerpg::EntityId{1},
+        corerpg::EntityId{std::numeric_limits<corerpg::EntityId::value_type>::max()},
+    };
+    for (const auto cursor : cursors) {
+        EXPECT_FALSE(world.next_entity_id(cursor).has_value());
+    }
+    EXPECT_EQ(world.entity_count(), 0U);
+    EXPECT_EQ(world.revision(), 0U);
+}
+
+TEST(WorldStateTest, EnumerationReturnsCreatedEntitiesInStrictAscendingOrder) {
+    corerpg::WorldState world;
+    std::array<corerpg::EntityId, 4> created;
+    for (auto& entity : created) {
+        entity = world.create_entity();
+    }
+    const auto initial_revision = world.revision();
+    corerpg::DeterministicRandom random{42};
+    const auto initial_random_state = random.state();
+    corerpg::EntityId cursor;
+
+    for (const auto expected : created) {
+        const auto next = world.next_entity_id(cursor);
+        ASSERT_TRUE(next.has_value());
+        EXPECT_EQ(*next, expected);
+        EXPECT_GT(*next, cursor);
+        EXPECT_TRUE(world.contains(*next));
+        cursor = *next;
+    }
+    EXPECT_FALSE(world.next_entity_id(cursor).has_value());
+    EXPECT_EQ(world.next_entity_id(created[1]), created[2]);
+    EXPECT_FALSE(world.next_entity_id(corerpg::EntityId{99}).has_value());
+    EXPECT_FALSE(world.next_entity_id(
+        corerpg::EntityId{std::numeric_limits<corerpg::EntityId::value_type>::max()}).has_value());
+    EXPECT_EQ(world.entity_count(), created.size());
+    EXPECT_EQ(world.revision(), initial_revision);
+    EXPECT_EQ(random.state(), initial_random_state);
+}
+
+TEST(WorldStateTest, EquivalentWorldsEnumerateEquallyAndQueriesObserveLaterCreations) {
+    corerpg::WorldState first;
+    corerpg::WorldState second;
+    const auto first_id = first.create_entity();
+    EXPECT_EQ(second.create_entity(), first_id);
+    EXPECT_EQ(first.next_entity_id(corerpg::EntityId{}), first_id);
+    EXPECT_EQ(first.next_entity_id(corerpg::EntityId{}), second.next_entity_id(corerpg::EntityId{}));
+    EXPECT_FALSE(first.next_entity_id(first_id).has_value());
+
+    const auto later_id = first.create_entity();
+    EXPECT_EQ(second.create_entity(), later_id);
+    EXPECT_EQ(first.next_entity_id(first_id), later_id);
+
+    corerpg::EntityId cursor;
+    for (const auto expected : {first_id, later_id}) {
+        const auto next = first.next_entity_id(cursor);
+        ASSERT_TRUE(next.has_value());
+        EXPECT_EQ(next, second.next_entity_id(cursor));
+        EXPECT_EQ(*next, expected);
+        cursor = *next;
+    }
+    EXPECT_FALSE(first.next_entity_id(cursor).has_value());
+    EXPECT_FALSE(second.next_entity_id(cursor).has_value());
+    EXPECT_EQ(first.revision(), 2U);
+    EXPECT_EQ(second.revision(), 2U);
 }
 
 } // namespace
