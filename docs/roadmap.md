@@ -1,7 +1,7 @@
 # CoreRPG — Roadmap vivo: fases, plataformas y Hosts
 
-**Fecha de revisión:** 2026-10-10.  
-**Referencias:** [Arquitectura](architecture.md), [ADR-0001](adr/0001-multi-universe-architecture.md), [ADR-0002](adr/0002-platforms-presentation-companion.md).
+**Fecha de revisión:** 2026-10-11.  
+**Referencias:** [Arquitectura](architecture.md), [ADR-0001](adr/0001-multi-universe-architecture.md), [ADR-0002](adr/0002-platforms-presentation-companion.md), [RFC — Iniciativa, autoridad y delegación NPC](proposals/npc-initiative-authority-delegation.md).
 
 Este documento añade **criterios transversales** a la hoja de ruta incremental. No renumera fases ni atribuye al Core capacidades no implementadas. El Core seguirá siendo un único núcleo C++20 independiente de la tecnología de presentación.
 
@@ -10,7 +10,7 @@ Este documento añade **criterios transversales** a la hoja de ruta incremental.
 - Fases **4.1–4.4** cerradas en la documentación histórica de CoreRPG.
 - **4.5 — Generic World State:** ABI/API todavía en evolución. Incrementos 1 y 2 publicados en `feat/generic-world-state` (commits `07d154d` y `2a3da89`), con CI Windows/MSVC y Linux/GCC superada. Incremento 3 informado como terminado localmente pero **pendiente de revisión, commit, push, CI, PR, merge y acta de cierre**. No afirmar 4.5 cerrada antes de completar esos pasos.
 - `main` de CoreRPG sigue en fase 4.4 al crear este documento. Evitar confundir estado de una rama y estado de `main`.
-- Aún no están implementados: registro rico de personajes, horario/estado vivo completo, simulación fuera de escena, persistencia de partidas, módulos de Host, Companion y sus HUD.
+- Aún no están implementados: registro rico de personajes, horario/estado vivo completo, simulación fuera de escena, persistencia de partidas, autoridad contextual, órdenes/tareas/delegaciones ejecutables, módulos de Host, Companion y sus HUD. Los contratos de Star Trek y Nimroel al respecto **son diseño de los consumidores**, no capacidades actuales del Core.
 
 ## Plataformas y presentaciones fijadas
 
@@ -28,13 +28,13 @@ Este documento añade **criterios transversales** a la hoja de ruta incremental.
 | Fase | Alcance y nueva precaución |
 | --- | --- |
 | **4.5 Generic World State** | Cerrar identidad, revision, enumeración, contención y validaciones existentes; **sin** acoplar Android, UE5 o Companion. |
-| **4.6 RNG + Rules** | RNG y reglas genéricas independientes de gráficos/entradas; no convertir procedimientos de sensores o magia en reglas hardcoded del Core. |
-| **4.7 Persistence** | Restauración exacta de identidades, asignador, revision, vínculos y futuros hechos relevantes; contrato de guardado portable y versionado, sin rerollear identidades. |
+| **4.6 RNG + Rules** | RNG y reglas genéricas independientes de gráficos/entradas; dejar abierta la evaluación contextual de capacidades/permisos futuros **sin implementar** jerarquías, órdenes o mando universal. |
+| **4.7 Persistence** | Restauración exacta de identidades, asignador, revision, vínculos y futuros hechos relevantes; contrato portable/versionado, sin rerollear. Prever extensibilidad para eventuales compromisos/delegaciones, **sin inventar campos ahora**. |
 | **4.8 Entidades/población/familias** | **Reevaluar alcance multiuniverso antes de implementar**: población latente, materialización, actividades y relaciones no deben introducir humanidad o familias como requisito universal. |
-| **4.9 Knowledge & Visibility** | Proyecciones por observador. El Host/Companion no pueden recibir conocimiento oculto como datos visibles. |
-| **4.10 Actions + Simulation** | Solicitudes estructuradas y resultados validados por autoridad única; la simulación off-screen deberá preservar causalidad e identidad. |
+| **4.9 Knowledge & Visibility** | Proyecciones por observador. Host, Companion y NPC no deben acceder a conocimiento oculto no autorizado al decidir, ordenar o informar. |
+| **4.10 Actions + Simulation** | Solicitudes estructuradas del jugador, NPC y Hosts, resultados validados por autoridad técnica única; simulación off-screen causal. **Tras el mínimo funcional**, reevaluar iniciativa, autoridad contextual, tareas, compromisos y delegación según RFC; no crear segundo ActionEngine. |
 | **4.11 Inspector** | Observación no mutante del estado lógico; diagnóstico para Hosts y validación. |
-| **4.12 Context Builder + AI** | Contextos autorizados; IA sin acceso directo de mutación. |
+| **4.12 Context Builder + AI** | Contextos autorizados; propuestas de decisión opcionales de IA, con revalidación contra estado vigente y ejecución únicamente autorizada; sin dependencia de API remota para operaciones urgentes. |
 | **4.13 Primer Content Pack Nimroel** | Contenido real y validación de un consumidor, sin imponer un renderizador. |
 | **4.14 Integración prevista con Unreal** | Vinculada específicamente al Host **Star Trek/UE5**. **No** obliga a Nimroel a usar Unreal. La integración de Nimroel 2D se planificará en paralelo como Host independiente, sin cambiar por ahora los números de fase. |
 | **4.15 Vertical slice Treskal** | Demostración real Nimroel en 2D; pruebas del estado, la presentación y la continuidad. |
@@ -99,6 +99,19 @@ No significa que todos los conceptos de las fases posteriores pertenezcan al Cor
 - Windows con Companion: mismo HUD interno completo más pantalla adicional opcional.
 - No confundir UI Android del juego con UI Companion. La sincronización de partidas Windows↔Android es una posible decisión futura distinta.
 
+### P7 — Candidato multiuniverso: iniciativa, autoridad contextual, tareas y delegación (aplazado)
+
+**Estado:** NECESIDAD JUSTIFICADA; **NO APROBADO PARA IMPLEMENTACIÓN**. Auditoría, fronteras, riesgos y fixtures: [RFC — Iniciativa y autoridad NPC](proposals/npc-initiative-authority-delegation.md).
+
+- **Problema confirmado en dos consumidores:** Star Trek define mando, órdenes, delegación y registro operativo; Nimroel define objetivos, decisiones, peticiones, compromisos/agenda y competencias. Esto no implica que compartan una jerarquía ni un algoritmo único de obediencia.
+- **Invariantes a preservar:** distinguir legitimidad de emitir, obligatoriedad de la solicitud, posibilidad de ejecución, decisión del destinatario y efecto real. Aceptar/ordenar **no equivale** a ejecutar; delegar una tarea **no equivale** a transferir autoridad.
+- **Separar autoridad técnica y narrativa:** CoreRPG conserva la validación y mutación del mundo; cada universo define cuándo una orden es legítima, quién está obligado y qué consecuencias tiene desobedecer.
+- **Plan:** no ampliar 4.5; reglas genéricas 4.6; persistencia extensible 4.7; percepción/Knowledge 4.9; ActionEngine mínimo y simulación 4.10; **solo después** decidir si compromisos, delegaciones y evaluador contextual requieren Core, módulo reutilizable o implementación específica. IA opcional en 4.12.
+- **Garantías futuras:** NPC inicia acciones sin Actor/sprite; actividades en segundo plano consistentes; delegación revocable/acotada; no actividades simultáneas incompatibles; historia de hechos separada de conocimiento; caída de proveedor de IA sin paralizar funciones.
+- **No hacer:** crear `UniversalCommandSystem`, política de rangos, estados generales de órdenes, proveedor de IA, sistemas paralelos ni tipos de Star Trek/Nimroel en el Core antes de aprobar un diseño y los tests neutrales.
+
+**Puerta de decisión:** presentar propuesta de contratos mínimos y matriz de casos de Star Trek, Nimroel y tercer universo sin jerarquía; revisar explícitamente alternativas de **no incorporarlo al núcleo**. Aprobación aparte antes de modificar código.
+
 ## Riesgos y decisiones que quedan abiertos
 
 | Tema | Comprobación requerida | Evitar |
@@ -110,6 +123,7 @@ No significa que todos los conceptos de las fases posteriores pertenezcan al Cor
 | Motor gráfico Nimroel | Evaluación futura de motor 2D Windows/Android | Imponer 2.5D, 3D o UE5 |
 | Companion | Transporte USB/Wi-Fi, sesión, auth y control de conocimiento | Obligarlo, dar autoridad remota, exigir ADB |
 | Rendimiento | Prueba real en MSI y Android | Inventar límites de actores o tamaños de mundo |
+| Iniciativa, órdenes y delegación | Revisión de contratos al contar con Actions/Knowledge/Simulation y consumidores verificables | Crear un segundo ActionEngine, imponer jerarquía universal o dar autoridad técnica a NPC/IA |
 
 ## Reglas de aceptación
 
@@ -121,5 +135,7 @@ No significa que todos los conceptos de las fases posteriores pertenezcan al Cor
 6. No se crean dos motores RPG ni se obliga a compartir motor gráfico.
 7. CI Windows/Linux no sustituye las pruebas Android NDK y UE5.
 8. No se reabre 4.5 para introducir redes, UI ni sistemas posteriores.
+9. Las acciones iniciadas por NPC y jugador siguen un mismo circuito de validación autoritativa; una orden legítima no fuerza obediencia ni ejecución automática.
+10. Tareas, delegaciones y propuestas de IA no permiten crear recursos, permisos ni conocimientos inexistentes; su posible sistema genérico requiere revisión y autorización posteriores.
 
 **Siguiente paso del Core:** concluir el Incremento 3 de 4.5, integrar su PR y documentar el cierre. En paralelo o poco después, ejecutar P1 Android NDK.
