@@ -22,6 +22,7 @@ add_executable(
     content_id_test.cpp
     random_test.cpp
     random_streams_test.cpp
+    rule_check_test.cpp
     roll_action_test.cpp
     smoke_test.cpp
     world_state_integration_test.cpp
