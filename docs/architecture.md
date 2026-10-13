@@ -292,7 +292,7 @@ referencia inexistente y resultado legítimamente falso. No asigna memoria,
 no consume RNG y no muta `WorldState`; la revisión del mundo permanece intacta.
 No representa relaciones jerárquicas, roles, permisos, consecuencias, estado
 de misión ni una política universal de personajes. Un chequeo satisfecho por sí
-solo **no autoriza una mutación**: validación/ejectución general corresponde a
+solo **no autoriza una mutación**: validación/ejecución general corresponde a
 4.10 y a las reglas específicas bajo la autoridad del Core.
 
 ## Identidad
