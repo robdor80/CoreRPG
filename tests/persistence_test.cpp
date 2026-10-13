@@ -127,4 +127,151 @@ TEST(PersistenceExportTest, MaximumImplicitIdentityRangeNeedsNoEntityAllocation)
     EXPECT_EQ(Persistence::serialize(snapshot).status, PersistenceStatus::invalid_world);
 }
 
+TEST(PersistenceRestoreTest, RoundTripRestoresExactWorldAllocatorRevisionAndStreams) {
+    const auto snapshot = representative_snapshot();
+    const auto encoded = Persistence::serialize(snapshot);
+    ASSERT_EQ(encoded.status, PersistenceStatus::success);
+    const auto decoded = Persistence::deserialize(encoded.bytes);
+    ASSERT_EQ(decoded.status, PersistenceStatus::success);
+    ASSERT_TRUE(decoded.snapshot);
+    EXPECT_EQ(*decoded.snapshot, snapshot);
+    corerpg::WorldState world;
+    corerpg::RandomStreams random{999};
+    static_cast<void>(random.stream(15).next());
+    ASSERT_EQ(Persistence::load(encoded.bytes, world, random), PersistenceStatus::success);
+    EXPECT_EQ(Persistence::capture(world, random), snapshot);
+    EXPECT_EQ(world.next_entity_id({}), EntityId{1});
+    EXPECT_EQ(world.container_of(EntityId{1}).container, EntityId{3});
+    EXPECT_EQ(world.container_of(EntityId{2}).container, EntityId{3});
+    EXPECT_EQ(world.container_of(EntityId{3}).status, corerpg::ContainmentStatus::uncontained);
+    EXPECT_FALSE(random.contains_stream(15));
+    EXPECT_EQ(world.create_entity(), EntityId{4});
+    EXPECT_EQ(world.revision(), 6U);
+    corerpg::DeterministicRandom control{UINT64_MAX};
+    EXPECT_EQ(random.stream(UINT64_MAX).next(), control.next());
+}
+
+TEST(PersistenceRestoreTest, EmptyWorldAndNoStreamsReplaceBothDestinations) {
+    corerpg::WorldState world;
+    static_cast<void>(world.create_entity());
+    corerpg::RandomStreams random{9};
+    static_cast<void>(random.stream(0).next());
+    const auto encoded = Persistence::serialize(CampaignSnapshot{});
+    ASSERT_EQ(Persistence::load(encoded.bytes, world, random), PersistenceStatus::success);
+    EXPECT_EQ(Persistence::capture(world, random), CampaignSnapshot{});
+    EXPECT_EQ(world.create_entity(), EntityId{1});
+    corerpg::RandomStreams control{0};
+    EXPECT_EQ(random.stream(17).next(), control.stream(17).next());
+}
+
+TEST(PersistenceRestoreTest, NumericBoundariesPreserveExhaustionWithoutWraparound) {
+    corerpg::WorldState world;
+    corerpg::RandomStreams random{0};
+    CampaignSnapshot snapshot;
+    snapshot.last_entity_id = UINT64_MAX - 1;
+    snapshot.revision = UINT64_MAX - 1;
+    ASSERT_EQ(Persistence::restore(snapshot, world, random), PersistenceStatus::success);
+    EXPECT_EQ(world.next_entity_id(EntityId{UINT64_MAX - 1}), std::nullopt);
+    EXPECT_EQ(world.create_entity(), EntityId{UINT64_MAX});
+    EXPECT_EQ(world.revision(), UINT64_MAX);
+    EXPECT_FALSE(world.create_entity().is_valid());
+    EXPECT_TRUE(world.contains(EntityId{UINT64_MAX}));
+    EXPECT_EQ(world.next_entity_id(EntityId{UINT64_MAX}), std::nullopt);
+    const auto saved = Persistence::capture(world, random);
+    ASSERT_EQ(Persistence::load(Persistence::serialize(saved).bytes, world, random),
+              PersistenceStatus::success);
+    EXPECT_EQ(Persistence::capture(world, random), saved);
+    EXPECT_FALSE(world.create_entity().is_valid());
+    snapshot = representative_snapshot();
+    snapshot.revision = UINT64_MAX;
+    ASSERT_EQ(Persistence::restore(snapshot, world, random), PersistenceStatus::success);
+    EXPECT_FALSE(world.create_entity().is_valid());
+    EXPECT_EQ(world.remove_containment(EntityId{1}), corerpg::ContainmentChange::revision_exhausted);
+    EXPECT_EQ(Persistence::capture(world, random), snapshot);
+}
+
+TEST(PersistenceValidationTest, RejectsInvalidWorldsLinksCyclesAndOrderingAtomically) {
+    struct Invalid { CampaignSnapshot snapshot; PersistenceStatus status; };
+    const auto make = [](auto change, PersistenceStatus status) {
+        auto snapshot = representative_snapshot();
+        change(snapshot);
+        return Invalid{std::move(snapshot), status};
+    };
+    const std::vector cases{
+        make([](auto& s) { s.format_version = 0; }, PersistenceStatus::unsupported_version),
+        make([](auto& s) { s.rng_policy = 2; }, PersistenceStatus::unsupported_rng_policy),
+        make([](auto& s) { s.revision = 2; }, PersistenceStatus::invalid_world),
+        make([](auto& s) { s.revision = 4; }, PersistenceStatus::invalid_world),
+        make([](auto& s) { s.last_entity_id = 0; s.containment.clear(); }, PersistenceStatus::invalid_world),
+        make([](auto& s) { s.last_entity_id = 1; s.containment.clear(); }, PersistenceStatus::invalid_world),
+        make([](auto& s) { s.containment[0].entity = EntityId{}; }, PersistenceStatus::invalid_link),
+        make([](auto& s) { s.containment[0].container = EntityId{}; }, PersistenceStatus::invalid_link),
+        make([](auto& s) { s.containment[0].container = EntityId{4}; }, PersistenceStatus::invalid_link),
+        make([](auto& s) { s.containment[0].entity = EntityId{4}; }, PersistenceStatus::invalid_link),
+        make([](auto& s) { s.containment[0].container = EntityId{1}; }, PersistenceStatus::invalid_link),
+        make([](auto& s) { s.containment[1].entity = EntityId{1}; }, PersistenceStatus::noncanonical_links),
+        make([](auto& s) { std::swap(s.containment[0], s.containment[1]); }, PersistenceStatus::noncanonical_links),
+        make([](auto& s) { s.containment[0].container = EntityId{2}; s.containment[1].container = EntityId{1}; }, PersistenceStatus::cycle_detected),
+        make([](auto& s) { s.streams[1].id = 0; }, PersistenceStatus::noncanonical_streams),
+        make([](auto& s) { std::swap(s.streams[0], s.streams[1]); }, PersistenceStatus::noncanonical_streams),
+    };
+    corerpg::WorldState world;
+    static_cast<void>(world.create_entity());
+    corerpg::RandomStreams random{55};
+    static_cast<void>(random.stream(22).next());
+    const auto original = Persistence::capture(world, random);
+    const auto* reference = random.find_stream(22);
+    for (const auto& test : cases) {
+        SCOPED_TRACE(static_cast<int>(test.status));
+        EXPECT_EQ(Persistence::validate(test.snapshot), test.status);
+        EXPECT_EQ(Persistence::restore(test.snapshot, world, random), test.status);
+        EXPECT_EQ(Persistence::capture(world, random), original);
+        EXPECT_EQ(random.find_stream(22), reference);
+    }
+}
+
+TEST(PersistenceValidationTest, EveryTruncationAndSingleByteCorruptionPreservesDestinations) {
+    const auto encoded = Persistence::serialize(representative_snapshot());
+    corerpg::WorldState world;
+    static_cast<void>(world.create_entity());
+    corerpg::RandomStreams random{8};
+    static_cast<void>(random.stream(7).next());
+    const auto original = Persistence::capture(world, random);
+    for (std::size_t size = 0; size < encoded.bytes.size(); ++size) {
+        EXPECT_NE(Persistence::load(std::span{encoded.bytes}.first(size), world, random),
+                  PersistenceStatus::success);
+        EXPECT_EQ(Persistence::capture(world, random), original);
+    }
+    for (std::size_t i = 0; i < encoded.bytes.size(); ++i) {
+        auto corrupted = encoded.bytes;
+        corrupted[i] ^= 1U;
+        const auto decoded = Persistence::deserialize(corrupted);
+        EXPECT_NE(decoded.status, PersistenceStatus::success);
+        EXPECT_FALSE(decoded.snapshot);
+        EXPECT_NE(Persistence::load(corrupted, world, random), PersistenceStatus::success);
+        EXPECT_EQ(Persistence::capture(world, random), original);
+    }
+    auto extra = encoded.bytes;
+    extra.push_back(0);
+    EXPECT_EQ(Persistence::load(extra, world, random), PersistenceStatus::invalid_size);
+    EXPECT_EQ(Persistence::capture(world, random), original);
+}
+
+TEST(PersistenceValidationTest, ResourceLimitsAreExplicitAndEnforcedBeforeRecords) {
+    const auto snapshot = representative_snapshot();
+    const auto encoded = Persistence::serialize(snapshot);
+    for (const auto limits : {corerpg::PersistenceLimits{59, 10, 10},
+                             corerpg::PersistenceLimits{124, 1, 2},
+                             corerpg::PersistenceLimits{124, 2, 1},
+                             corerpg::PersistenceLimits{123, 2, 2}}) {
+        EXPECT_EQ(Persistence::serialize(snapshot, limits).status, PersistenceStatus::limit_exceeded);
+        EXPECT_EQ(Persistence::deserialize(encoded.bytes, limits).status, PersistenceStatus::limit_exceeded);
+    }
+    EXPECT_EQ(Persistence::deserialize(encoded.bytes, {124, 2, 2}).status, PersistenceStatus::success);
+    auto huge_counts = encoded.bytes;
+    std::fill(huge_counts.begin() + 40, huge_counts.begin() + 56, 0xFFU);
+    EXPECT_EQ(Persistence::deserialize(huge_counts, {UINT64_MAX, UINT64_MAX, UINT64_MAX}).status,
+              PersistenceStatus::limit_exceeded);
+}
+
 } // namespace
