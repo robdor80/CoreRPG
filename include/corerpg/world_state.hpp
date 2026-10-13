@@ -109,6 +109,20 @@ class WorldState final {
     }
     [[nodiscard]] std::span<const EntityRelation> relations_from(EntityId source) const noexcept;
 
+    [[nodiscard]] PopulationChange declare_population(EntityId group, std::uint64_t total);
+    [[nodiscard]] std::optional<PopulationRecord> population_of(EntityId group) const noexcept;
+    [[nodiscard]] std::optional<EntityId> population_origin(EntityId entity) const noexcept;
+    [[nodiscard]] std::span<const PopulationRecord> populations() const noexcept {
+        return populations_;
+    }
+    [[nodiscard]] std::span<const PopulationMembership> population_memberships() const noexcept {
+        return population_memberships_;
+    }
+    /// N elementary creations published atomically; revision increases by N.
+    /// No RNG draws or visual materialization. The batch is never silently shortened.
+    [[nodiscard]] MaterializationResult materialize_population(EntityId group, std::uint64_t count,
+                                                               std::uint64_t max_batch = 256);
+
   private:
     friend class Persistence;
     /// Private validated staging path; may throw without touching an existing world.

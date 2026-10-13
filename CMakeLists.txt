@@ -30,6 +30,7 @@ target_sources(
         src/content_diagnostic.cpp
         src/content_id.cpp
         src/entity_structure.cpp
+        src/population.cpp
         src/semantic_version.cpp
         src/version_requirement.cpp
         src/random.cpp
