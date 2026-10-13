@@ -53,6 +53,7 @@ target_sources(
             include/corerpg/entity_id.hpp
             include/corerpg/pack_dependency.hpp
             include/corerpg/pack_id.hpp
+            include/corerpg/persistence.hpp
             include/corerpg/random.hpp
             include/corerpg/random_streams.hpp
             include/corerpg/rule_check.hpp
