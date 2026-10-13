@@ -1,4 +1,6 @@
 #include <corerpg/persistence.hpp>
+#include <corerpg/roll_action.hpp>
+#include <corerpg/rule_check.hpp>
 
 #include <gtest/gtest.h>
 
@@ -72,9 +74,10 @@ TEST(PersistenceExportTest, CaptureIsCompleteCanonicalAndDoesNotConsumeOrMutate)
     EXPECT_EQ(before.revision, 6U);
     EXPECT_EQ(before.master_seed, 42U);
     EXPECT_EQ(before.containment, (std::vector<corerpg::ContainmentSnapshot>{
-        {EntityId{1}, EntityId{3}}, {EntityId{3}, EntityId{4}}}));
+                                      {EntityId{1}, EntityId{3}}, {EntityId{3}, EntityId{4}}}));
     EXPECT_EQ(before.streams, (std::vector<corerpg::RandomStreamSnapshot>{
-        {0, random.find_stream(0)->state()}, {UINT64_MAX, random.find_stream(UINT64_MAX)->state()}}));
+                                  {0, random.find_stream(0)->state()},
+                                  {UINT64_MAX, random.find_stream(UINT64_MAX)->state()}}));
     const auto first = Persistence::serialize(before);
     ASSERT_EQ(first.status, PersistenceStatus::success);
     EXPECT_EQ(first.bytes, Persistence::serialize(Persistence::capture(world, random)).bytes);
@@ -83,26 +86,26 @@ TEST(PersistenceExportTest, CaptureIsCompleteCanonicalAndDoesNotConsumeOrMutate)
 }
 
 TEST(PersistenceExportTest, ChecksumMatchesIndependentCastagnoliVector) {
-    constexpr std::array<std::uint8_t, 9> input{'1','2','3','4','5','6','7','8','9'};
+    constexpr std::array<std::uint8_t, 9> input{'1', '2', '3', '4', '5', '6', '7', '8', '9'};
     EXPECT_EQ(corerpg::detail::save_checksum(input), 0xE3069283U);
 }
 
 TEST(PersistenceExportTest, EmptySnapshotMatchesPortableGoldenBytes) {
     const auto encoded = Persistence::serialize(CampaignSnapshot{});
     ASSERT_EQ(encoded.status, PersistenceStatus::success);
-    EXPECT_EQ(encoded.bytes, from_hex(
-        "4352504753415645010000000100000000000000000000000000000000000000"
-        "00000000000000000000000000000000000000000000000063dc3e1f"));
+    EXPECT_EQ(encoded.bytes,
+              from_hex("4352504753415645010000000100000000000000000000000000000000000000"
+                       "00000000000000000000000000000000000000000000000063dc3e1f"));
 }
 
 TEST(PersistenceExportTest, PopulatedSnapshotMatchesIndependentPortableGoldenBytes) {
     const auto encoded = Persistence::serialize(representative_snapshot());
     ASSERT_EQ(encoded.status, PersistenceStatus::success);
-    EXPECT_EQ(encoded.bytes, from_hex(
-        "4352504753415645010000000100000003000000000000000500000000000000"
-        "2a00000000000000020000000000000002000000000000000100000000000000"
-        "0300000000000000020000000000000003000000000000000000000000000000"
-        "0000000000000000ffffffffffffffffffffffffffffffffa54c8b86"));
+    EXPECT_EQ(encoded.bytes,
+              from_hex("4352504753415645010000000100000003000000000000000500000000000000"
+                       "2a00000000000000020000000000000002000000000000000100000000000000"
+                       "0300000000000000020000000000000003000000000000000000000000000000"
+                       "0000000000000000ffffffffffffffffffffffffffffffffa54c8b86"));
 }
 
 TEST(PersistenceExportTest, RejectsInvalidCandidatesInsteadOfSerializingThem) {
@@ -186,12 +189,16 @@ TEST(PersistenceRestoreTest, NumericBoundariesPreserveExhaustionWithoutWraparoun
     snapshot.revision = UINT64_MAX;
     ASSERT_EQ(Persistence::restore(snapshot, world, random), PersistenceStatus::success);
     EXPECT_FALSE(world.create_entity().is_valid());
-    EXPECT_EQ(world.remove_containment(EntityId{1}), corerpg::ContainmentChange::revision_exhausted);
+    EXPECT_EQ(world.remove_containment(EntityId{1}),
+              corerpg::ContainmentChange::revision_exhausted);
     EXPECT_EQ(Persistence::capture(world, random), snapshot);
 }
 
 TEST(PersistenceValidationTest, RejectsInvalidWorldsLinksCyclesAndOrderingAtomically) {
-    struct Invalid { CampaignSnapshot snapshot; PersistenceStatus status; };
+    struct Invalid {
+        CampaignSnapshot snapshot;
+        PersistenceStatus status;
+    };
     const auto make = [](auto change, PersistenceStatus status) {
         auto snapshot = representative_snapshot();
         change(snapshot);
@@ -202,18 +209,41 @@ TEST(PersistenceValidationTest, RejectsInvalidWorldsLinksCyclesAndOrderingAtomic
         make([](auto& s) { s.rng_policy = 2; }, PersistenceStatus::unsupported_rng_policy),
         make([](auto& s) { s.revision = 2; }, PersistenceStatus::invalid_world),
         make([](auto& s) { s.revision = 4; }, PersistenceStatus::invalid_world),
-        make([](auto& s) { s.last_entity_id = 0; s.containment.clear(); }, PersistenceStatus::invalid_world),
-        make([](auto& s) { s.last_entity_id = 1; s.containment.clear(); }, PersistenceStatus::invalid_world),
-        make([](auto& s) { s.containment[0].entity = EntityId{}; }, PersistenceStatus::invalid_link),
-        make([](auto& s) { s.containment[0].container = EntityId{}; }, PersistenceStatus::invalid_link),
-        make([](auto& s) { s.containment[0].container = EntityId{4}; }, PersistenceStatus::invalid_link),
-        make([](auto& s) { s.containment[0].entity = EntityId{4}; }, PersistenceStatus::invalid_link),
-        make([](auto& s) { s.containment[0].container = EntityId{1}; }, PersistenceStatus::invalid_link),
-        make([](auto& s) { s.containment[1].entity = EntityId{1}; }, PersistenceStatus::noncanonical_links),
-        make([](auto& s) { std::swap(s.containment[0], s.containment[1]); }, PersistenceStatus::noncanonical_links),
-        make([](auto& s) { s.containment[0].container = EntityId{2}; s.containment[1].container = EntityId{1}; }, PersistenceStatus::cycle_detected),
+        make(
+            [](auto& s) {
+                s.last_entity_id = 0;
+                s.containment.clear();
+            },
+            PersistenceStatus::invalid_world),
+        make(
+            [](auto& s) {
+                s.last_entity_id = 1;
+                s.containment.clear();
+            },
+            PersistenceStatus::invalid_world),
+        make([](auto& s) { s.containment[0].entity = EntityId{}; },
+             PersistenceStatus::invalid_link),
+        make([](auto& s) { s.containment[0].container = EntityId{}; },
+             PersistenceStatus::invalid_link),
+        make([](auto& s) { s.containment[0].container = EntityId{4}; },
+             PersistenceStatus::invalid_link),
+        make([](auto& s) { s.containment[0].entity = EntityId{4}; },
+             PersistenceStatus::invalid_link),
+        make([](auto& s) { s.containment[0].container = EntityId{1}; },
+             PersistenceStatus::invalid_link),
+        make([](auto& s) { s.containment[1].entity = EntityId{1}; },
+             PersistenceStatus::noncanonical_links),
+        make([](auto& s) { std::swap(s.containment[0], s.containment[1]); },
+             PersistenceStatus::noncanonical_links),
+        make(
+            [](auto& s) {
+                s.containment[0].container = EntityId{2};
+                s.containment[1].container = EntityId{1};
+            },
+            PersistenceStatus::cycle_detected),
         make([](auto& s) { s.streams[1].id = 0; }, PersistenceStatus::noncanonical_streams),
-        make([](auto& s) { std::swap(s.streams[0], s.streams[1]); }, PersistenceStatus::noncanonical_streams),
+        make([](auto& s) { std::swap(s.streams[0], s.streams[1]); },
+             PersistenceStatus::noncanonical_streams),
     };
     corerpg::WorldState world;
     static_cast<void>(world.create_entity());
@@ -260,18 +290,177 @@ TEST(PersistenceValidationTest, EveryTruncationAndSingleByteCorruptionPreservesD
 TEST(PersistenceValidationTest, ResourceLimitsAreExplicitAndEnforcedBeforeRecords) {
     const auto snapshot = representative_snapshot();
     const auto encoded = Persistence::serialize(snapshot);
-    for (const auto limits : {corerpg::PersistenceLimits{59, 10, 10},
-                             corerpg::PersistenceLimits{124, 1, 2},
-                             corerpg::PersistenceLimits{124, 2, 1},
-                             corerpg::PersistenceLimits{123, 2, 2}}) {
-        EXPECT_EQ(Persistence::serialize(snapshot, limits).status, PersistenceStatus::limit_exceeded);
-        EXPECT_EQ(Persistence::deserialize(encoded.bytes, limits).status, PersistenceStatus::limit_exceeded);
+    for (const auto limits :
+         {corerpg::PersistenceLimits{59, 10, 10}, corerpg::PersistenceLimits{124, 1, 2},
+          corerpg::PersistenceLimits{124, 2, 1}, corerpg::PersistenceLimits{123, 2, 2}}) {
+        EXPECT_EQ(Persistence::serialize(snapshot, limits).status,
+                  PersistenceStatus::limit_exceeded);
+        EXPECT_EQ(Persistence::deserialize(encoded.bytes, limits).status,
+                  PersistenceStatus::limit_exceeded);
     }
-    EXPECT_EQ(Persistence::deserialize(encoded.bytes, {124, 2, 2}).status, PersistenceStatus::success);
+    EXPECT_EQ(Persistence::deserialize(encoded.bytes, {124, 2, 2}).status,
+              PersistenceStatus::success);
     auto huge_counts = encoded.bytes;
     std::fill(huge_counts.begin() + 40, huge_counts.begin() + 56, 0xFFU);
     EXPECT_EQ(Persistence::deserialize(huge_counts, {UINT64_MAX, UINT64_MAX, UINT64_MAX}).status,
               PersistenceStatus::limit_exceeded);
+}
+
+TEST(PersistenceContinuityTest, SaveLoadAndUninterruptedExecutionHaveIdenticalFuture) {
+    corerpg::WorldState uninterrupted;
+    for (int i = 0; i < 6; ++i) {
+        static_cast<void>(uninterrupted.create_entity());
+    }
+    ASSERT_EQ(uninterrupted.place_entity(EntityId{1}, EntityId{3}),
+              corerpg::ContainmentChange::applied);
+    ASSERT_EQ(uninterrupted.place_entity(EntityId{3}, EntityId{6}),
+              corerpg::ContainmentChange::applied);
+    corerpg::RandomStreams control{UINT64_MAX};
+    for (const auto id : std::array<std::uint64_t, 3>{0, 17, UINT64_MAX}) {
+        for (int i = 0; i < 7; ++i) {
+            static_cast<void>(control.stream(id).next());
+        }
+    }
+    corerpg::WorldState resumed;
+    corerpg::RandomStreams restored{0};
+    const auto before = Persistence::capture(uninterrupted, control);
+    const auto bytes = Persistence::serialize(before).bytes;
+    ASSERT_EQ(Persistence::load(bytes, resumed, restored), PersistenceStatus::success);
+    EXPECT_EQ(Persistence::capture(uninterrupted, control), before);
+    EXPECT_EQ(Persistence::capture(resumed, restored), before);
+    EXPECT_FALSE(restored.contains_stream(99));
+    for (unsigned i = 0; i < 100; ++i) {
+        SCOPED_TRACE(i);
+        const auto a = uninterrupted.create_entity();
+        const auto b = resumed.create_entity();
+        EXPECT_EQ(a, b);
+        EXPECT_EQ(uninterrupted.place_entity(a, EntityId{1}), resumed.place_entity(b, EntityId{1}));
+        if (i % 3U == 0) {
+            EXPECT_EQ(uninterrupted.remove_containment(a), resumed.remove_containment(b));
+        }
+        for (const auto id : std::array<std::uint64_t, 4>{0, 17, UINT64_MAX, 99}) {
+            // Covers singleton, invalid, full-width, and high-rejection ranges.
+            const std::array actions{
+                corerpg::RollAction{a, 7, 7},
+                corerpg::RollAction{a, 9, 1},
+                corerpg::RollAction{a, 0, UINT64_MAX},
+                corerpg::RollAction{a, 0, (1ULL << 63U)},
+                corerpg::RollAction{EntityId{}, 1, 100},
+            };
+            for (const auto& action : actions) {
+                const auto first = corerpg::resolve_roll(uninterrupted, control.stream(id), action);
+                const auto second = corerpg::resolve_roll(resumed, restored.stream(id), action);
+                EXPECT_EQ(first.status, second.status);
+                EXPECT_EQ(first.value, second.value);
+            }
+        }
+        const corerpg::RuleCheck check{corerpg::RuleCheckKind::direct_container_is, EntityId{1},
+                                       EntityId{3}};
+        EXPECT_EQ(corerpg::evaluate_rule_check(uninterrupted, check).status,
+                  corerpg::evaluate_rule_check(resumed, check).status);
+        EXPECT_EQ(Persistence::capture(uninterrupted, control),
+                  Persistence::capture(resumed, restored));
+        EXPECT_EQ(Persistence::serialize(Persistence::capture(resumed, restored)).bytes,
+                  Persistence::serialize(Persistence::capture(uninterrupted, control)).bytes);
+    }
+}
+
+TEST(PersistenceContinuityTest, RestoredWorldAndPoolCopiesRemainIndependent) {
+    corerpg::WorldState world;
+    corerpg::RandomStreams random{9};
+    ASSERT_EQ(Persistence::restore(representative_snapshot(), world, random),
+              PersistenceStatus::success);
+    auto copied_world = world;
+    auto copied_random = random;
+    const auto before = Persistence::capture(world, random);
+    EXPECT_EQ(copied_world.remove_containment(EntityId{1}), corerpg::ContainmentChange::applied);
+    EXPECT_EQ(copied_world.create_entity(), EntityId{4});
+    static_cast<void>(copied_random.stream(0).next());
+    static_cast<void>(copied_random.stream(55).next());
+    EXPECT_EQ(Persistence::capture(world, random), before);
+    EXPECT_NE(Persistence::capture(copied_world, copied_random), before);
+    // A detached snapshot can also change without changing the live destinations.
+    auto candidate = before;
+    candidate.streams.front().state = 123;
+    candidate.containment.clear();
+    EXPECT_EQ(Persistence::capture(world, random), before);
+}
+
+void refresh_checksum(std::vector<std::uint8_t>& bytes) {
+    bytes.resize(bytes.size() - 4);
+    const auto crc = corerpg::detail::save_checksum(bytes);
+    corerpg::detail::append_integer(bytes, crc, 4);
+}
+
+TEST(PersistenceValidationTest, ValidChecksumDoesNotBypassSemanticValidation) {
+    const auto original_bytes = Persistence::serialize(representative_snapshot()).bytes;
+    corerpg::WorldState world;
+    corerpg::RandomStreams random{88};
+    static_cast<void>(world.create_entity());
+    static_cast<void>(random.stream(3).next());
+    const auto original = Persistence::capture(world, random);
+    struct Mutation {
+        std::size_t offset;
+        std::uint8_t value;
+        PersistenceStatus expected;
+    };
+    for (const auto mutation : {Mutation{24, 1, PersistenceStatus::invalid_world},
+                                Mutation{56, 0, PersistenceStatus::invalid_link},
+                                Mutation{64, 9, PersistenceStatus::invalid_link},
+                                Mutation{64, 1, PersistenceStatus::invalid_link},
+                                Mutation{72, 1, PersistenceStatus::noncanonical_links}}) {
+        auto bytes = original_bytes;
+        bytes[mutation.offset] = mutation.value;
+        refresh_checksum(bytes);
+        const auto decoded = Persistence::deserialize(bytes);
+        EXPECT_EQ(decoded.status, mutation.expected);
+        EXPECT_FALSE(decoded.snapshot);
+        EXPECT_EQ(Persistence::load(bytes, world, random), mutation.expected);
+        EXPECT_EQ(Persistence::capture(world, random), original);
+    }
+    auto cycle = original_bytes;
+    cycle[64] = 2;
+    cycle[80] = 1;
+    refresh_checksum(cycle);
+    EXPECT_EQ(Persistence::load(cycle, world, random), PersistenceStatus::cycle_detected);
+    auto duplicate_stream = original_bytes;
+    std::fill(duplicate_stream.begin() + 104, duplicate_stream.begin() + 112, 0);
+    refresh_checksum(duplicate_stream);
+    EXPECT_EQ(Persistence::load(duplicate_stream, world, random),
+              PersistenceStatus::noncanonical_streams);
+    EXPECT_EQ(Persistence::capture(world, random), original);
+}
+
+TEST(PersistenceValidationTest, DeepChainsAndSharedAncestorsAreIterativeAndSparse) {
+    CampaignSnapshot snapshot;
+    snapshot.last_entity_id = UINT64_MAX - 20'000;
+    snapshot.revision = UINT64_MAX;
+    for (std::uint64_t i = 1; i < 10'000; ++i) {
+        snapshot.containment.push_back({EntityId{i}, EntityId{i + 1}});
+    }
+    for (std::uint64_t i = 10'001; i < 20'000; ++i) {
+        snapshot.containment.push_back({EntityId{i}, EntityId{5'000}});
+    }
+    const auto bytes = Persistence::serialize(snapshot);
+    ASSERT_EQ(bytes.status, PersistenceStatus::success);
+    const auto decoded = Persistence::deserialize(bytes.bytes);
+    ASSERT_EQ(decoded.status, PersistenceStatus::success);
+    EXPECT_EQ(*decoded.snapshot, snapshot);
+    snapshot.containment.push_back({EntityId{20'000}, EntityId{20'001}});
+    snapshot.containment.push_back({EntityId{20'001}, EntityId{20'000}});
+    EXPECT_EQ(Persistence::validate(snapshot), PersistenceStatus::cycle_detected);
+}
+
+TEST(PersistenceValidationTest, GoldenInputDecodesAndReencodesWithoutNativeLayoutAssumptions) {
+    const auto golden = from_hex("4352504753415645010000000100000003000000000000000500000000000000"
+                                 "2a00000000000000020000000000000002000000000000000100000000000000"
+                                 "0300000000000000020000000000000003000000000000000000000000000000"
+                                 "0000000000000000ffffffffffffffffffffffffffffffffa54c8b86");
+    const auto decoded = Persistence::deserialize(golden);
+    ASSERT_EQ(decoded.status, PersistenceStatus::success);
+    ASSERT_TRUE(decoded.snapshot);
+    EXPECT_EQ(*decoded.snapshot, representative_snapshot());
+    EXPECT_EQ(Persistence::serialize(*decoded.snapshot).bytes, golden);
 }
 
 } // namespace

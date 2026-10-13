@@ -2,8 +2,8 @@
 
 #include <corerpg/persistence.hpp>
 
-#include <array>
 #include <algorithm>
+#include <array>
 #include <climits>
 #include <cstddef>
 #include <limits>
@@ -29,13 +29,11 @@ inline constexpr std::size_t save_minimum_size = 60;
 }
 
 // Bound arithmetic before addition/multiplication, including on 32-bit hosts.
-[[nodiscard]] inline std::optional<std::size_t> save_size(std::uint64_t links,
-                                                        std::uint64_t streams,
-                                                        PersistenceLimits limits) noexcept {
-    const auto maximum = std::min(limits.max_bytes,
-        static_cast<std::uint64_t>(std::numeric_limits<std::size_t>::max()));
-    if (links > limits.max_links || streams > limits.max_streams ||
-        maximum < save_minimum_size) {
+[[nodiscard]] inline std::optional<std::size_t>
+save_size(std::uint64_t links, std::uint64_t streams, PersistenceLimits limits) noexcept {
+    const auto maximum = std::min(
+        limits.max_bytes, static_cast<std::uint64_t>(std::numeric_limits<std::size_t>::max()));
+    if (links > limits.max_links || streams > limits.max_streams || maximum < save_minimum_size) {
         return std::nullopt;
     }
     const auto record_capacity = (maximum - save_minimum_size) / 16U;
@@ -45,8 +43,7 @@ inline constexpr std::size_t save_minimum_size = 60;
     return static_cast<std::size_t>(save_minimum_size + 16U * (links + streams));
 }
 
-inline void append_integer(std::vector<std::uint8_t>& bytes, std::uint64_t value,
-                           unsigned width) {
+inline void append_integer(std::vector<std::uint8_t>& bytes, std::uint64_t value, unsigned width) {
     for (unsigned i = 0; i < width; ++i) {
         bytes.push_back(static_cast<std::uint8_t>(value & 0xFFU));
         value >>= 8U;

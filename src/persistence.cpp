@@ -24,7 +24,8 @@ CampaignSnapshot Persistence::capture(const WorldState& world, const RandomStrea
     return snapshot;
 }
 
-PersistenceStatus Persistence::validate(const CampaignSnapshot& snapshot, PersistenceLimits limits) {
+PersistenceStatus Persistence::validate(const CampaignSnapshot& snapshot,
+                                        PersistenceLimits limits) {
     if (snapshot.format_version != save_format_version) {
         return PersistenceStatus::unsupported_version;
     }
@@ -41,9 +42,8 @@ PersistenceStatus Persistence::validate(const CampaignSnapshot& snapshot, Persis
     }
     EntityId previous;
     for (const auto& link : snapshot.containment) {
-        if (!link.entity.is_valid() || !link.container.is_valid() ||
-            link.entity.value() > last || link.container.value() > last ||
-            link.entity == link.container) {
+        if (!link.entity.is_valid() || !link.container.is_valid() || link.entity.value() > last ||
+            link.container.value() > last || link.entity == link.container) {
             return PersistenceStatus::invalid_link;
         }
         if (link.entity <= previous) {
@@ -62,10 +62,12 @@ PersistenceStatus Persistence::validate(const CampaignSnapshot& snapshot, Persis
     const auto& links = snapshot.containment;
     const auto parent_index = [&](std::size_t index) {
         const auto parent = links[index].container;
-        const auto it = std::lower_bound(links.begin(), links.end(), parent,
-            [](const auto& link, EntityId id) { return link.entity < id; });
+        const auto it =
+            std::lower_bound(links.begin(), links.end(), parent,
+                             [](const auto& link, EntityId id) { return link.entity < id; });
         return it == links.end() || it->entity != parent
-            ? links.size() : static_cast<std::size_t>(it - links.begin());
+                   ? links.size()
+                   : static_cast<std::size_t>(it - links.begin());
     };
     std::vector<std::uint8_t> colors(links.size(), 0);
     for (std::size_t start = 0; start < links.size(); ++start) {
@@ -90,7 +92,7 @@ PersistenceStatus Persistence::validate(const CampaignSnapshot& snapshot, Persis
 }
 
 SerializedSnapshot Persistence::serialize(const CampaignSnapshot& snapshot,
-                                            PersistenceLimits limits) {
+                                          PersistenceLimits limits) {
     const auto status = validate(snapshot, limits);
     if (status != PersistenceStatus::success) {
         return {status, {}};
@@ -168,7 +170,8 @@ DecodedSnapshot Persistence::deserialize(std::span<const std::uint8_t> bytes,
     snapshot.last_entity_id = last;
     snapshot.revision = revision;
     snapshot.master_seed = master_seed;
-    if (link_count > snapshot.containment.max_size() || stream_count > snapshot.streams.max_size()) {
+    if (link_count > snapshot.containment.max_size() ||
+        stream_count > snapshot.streams.max_size()) {
         return {PersistenceStatus::limit_exceeded, std::nullopt};
     }
     snapshot.containment.reserve(static_cast<std::size_t>(link_count));
@@ -192,7 +195,7 @@ DecodedSnapshot Persistence::deserialize(std::span<const std::uint8_t> bytes,
 }
 
 PersistenceStatus Persistence::restore(const CampaignSnapshot& snapshot, WorldState& world,
-                                        RandomStreams& random, PersistenceLimits limits) {
+                                       RandomStreams& random, PersistenceLimits limits) {
     const auto status = validate(snapshot, limits);
     if (status != PersistenceStatus::success) {
         return status;
@@ -226,7 +229,8 @@ PersistenceStatus Persistence::load(std::span<const std::uint8_t> bytes, WorldSt
                                     RandomStreams& random, PersistenceLimits limits) {
     const auto decoded = deserialize(bytes, limits);
     return decoded.status == PersistenceStatus::success
-        ? restore(*decoded.snapshot, world, random, limits) : decoded.status;
+               ? restore(*decoded.snapshot, world, random, limits)
+               : decoded.status;
 }
 
 } // namespace corerpg

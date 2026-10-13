@@ -74,15 +74,15 @@ struct DecodedSnapshot final {
 /// Allocation exceptions propagate, preserving all input and destination objects.
 /// Callers must exclude concurrent mutations throughout capture/restore/load.
 class Persistence final {
-public:
+  public:
     [[nodiscard]] static CampaignSnapshot capture(const WorldState& world,
                                                   const RandomStreams& random);
     [[nodiscard]] static PersistenceStatus validate(const CampaignSnapshot& snapshot,
                                                     PersistenceLimits limits = {});
     [[nodiscard]] static SerializedSnapshot serialize(const CampaignSnapshot& snapshot,
-                                                       PersistenceLimits limits = {});
-    [[nodiscard]] static DecodedSnapshot deserialize(std::span<const std::uint8_t> bytes,
                                                       PersistenceLimits limits = {});
+    [[nodiscard]] static DecodedSnapshot deserialize(std::span<const std::uint8_t> bytes,
+                                                     PersistenceLimits limits = {});
     /// Replaces both destinations together; success invalidates old stream references.
     [[nodiscard]] static PersistenceStatus restore(const CampaignSnapshot& snapshot,
                                                    WorldState& world, RandomStreams& random,
