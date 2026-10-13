@@ -264,6 +264,37 @@ existen todavía una clase base `Action`, un sistema de comandos, dispatcher,
 registry, efectos generales ni framework de simulación. Ese modelo corresponde
 principalmente a 4.10.
 
+### 4.6 — RNG streams y reglas estructurales (en desarrollo)
+
+El generador SplitMix64 y sus vectores dorados de la foundation **no cambian**.
+`RandomStreams` es un propietario explícito, por contexto de simulación, de
+secuencias independientes. Recibe master seed `uint64`, y asocia
+`stream_id uint64` con un `DeterministicRandom` único que se abre cuando
+se solicita por primera vez; el ID 0 es válido. La seed inicial se obtiene
+aplicando una pasada SplitMix64 a
+`master_seed XOR ((stream_id + 0xD1B54A32D192ED03) * 0x9E3779B97F4A7C15)`,
+con todas las operaciones como unsigned de 64 bits. Esta composición y las
+semillas doradas son política de compatibilidad, no una fórmula modificable
+silenciosamente. El ID de stream lo asigna cada consumidor como constante
+estable, nunca por hashing de implementación ni usando orden de inserción.
+
+El pool no es global, no está almacenado en `WorldState`, y las operaciones
+que usan RNG deben seguir recibiendo el stream explícitamente. Consultar
+streams inexistentes no los crea. Insertar otros no altera el estado de una
+secuencia existente. Copiar el pool produce estados independientes. La
+persistencia exacta de cada stream y su restauración se definirán en 4.7.
+
+`RuleCheck` y `evaluate_rule_checks` son el primer contrato de
+**comprobaciones puras, no autorizaciones** sobre hechos reales ya observables:
+existencia, contención **directa** y ausencia de contención. Una conjunción
+ordenada retorna el primer chequeo no satisfecho; distingue entrada malformada,
+referencia inexistente y resultado legítimamente falso. No asigna memoria,
+no consume RNG y no muta `WorldState`; la revisión del mundo permanece intacta.
+No representa relaciones jerárquicas, roles, permisos, consecuencias, estado
+de misión ni una política universal de personajes. Un chequeo satisfecho por sí
+solo **no autoriza una mutación**: validación/ejectución general corresponde a
+4.10 y a las reglas específicas bajo la autoridad del Core.
+
 ## Identidad
 
 El modelo distingue tres tipos de identidad no intercambiables:
