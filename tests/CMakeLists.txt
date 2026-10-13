@@ -23,6 +23,7 @@ add_executable(
     random_test.cpp
     roll_action_test.cpp
     smoke_test.cpp
+    world_state_integration_test.cpp
     world_state_test.cpp
 )
 

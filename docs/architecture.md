@@ -458,6 +458,48 @@ este incremento no implementa formato de guardado, restore, puente
 `DefinitionId`/`EntityId`, spawning, materialización, reglas de movimiento,
 acciones generales ni simulación.
 
+### Integración y fronteras posteriores
+
+El Incremento 3 verifica los fundamentos y la contención como conjunto, sin
+añadir capacidades. Sus pruebas combinan creación, cadena anidada, reasociación,
+rechazo de ciclos sobre la topología vigente, retirada con descendientes,
+no-op, copia y asignación de varios niveles, y emisión independiente de IDs
+posteriores. El estado lógico se observa exclusivamente mediante la API
+pública. Una prueba adicional comprueba que `RollAction` produce la misma
+secuencia y estado RNG con o sin contención, sin alterar los hechos del mundo.
+Estas pruebas no implementan serialización ni un sistema de snapshots.
+
+El alcance ejecutable de 4.5 es identidad runtime y vínculos persistentes de
+contención. «Persistente» aquí significa que el hecho pertenece al estado vivo
+y permanece hasta una mutación; no significa que exista guardado en disco.
+No hay un modelo general de componentes o datos de dominio, instanciación
+desde Content Packs, spawning, templates, archetypes ni provenance de instancia.
+La contención opcional no es un sistema completo de espacio o movimiento.
+La fase sigue pendiente de integración en `main`, CI verde y acta histórica;
+esta documentación técnica no declara su cierre oficial.
+
+Las fronteras futuras son:
+
+- **4.6 — RNG + Rules:** consultar contención no consume RNG ni ejecuta reglas.
+  Las reglas específicas permanecen fuera de estas primitivas estructurales.
+- **4.7 — Persistence:** deberá preservar identidades, estado del asignador,
+  revisión y vínculos. La carga deberá reconstruir el estado completo sin
+  repetir mutaciones ni incrementar la revisión por cada vínculo restaurado.
+  La API de restauración y el formato todavía no existen.
+- **4.8:** su alcance requiere revisión multiuniverso; no se anticipan familias,
+  personajes ni población.
+- **4.9 — Knowledge & Visibility:** los vínculos son realidad autoritativa,
+  no conocimiento o percepción de un observador.
+- **4.10 — Actions + Simulation:** la atomicidad actual es local a cada
+  primitiva. Una secuencia de llamadas no constituye una transacción general;
+  si una operación posterior falla, las anteriores conservan sus cambios.
+  Coordinación, permisos, costes y autorización de gameplay siguen pendientes.
+- **4.11 — Inspector:** las consultas permiten observar sin mutar, con los
+  límites de ausencia de snapshots y concurrencia ya documentados.
+- **4.12 — Context Builder + AI:** una IA podrá proponer intenciones mediante
+  la futura frontera de acciones; las consultas no le otorgan autoridad para
+  modificar la realidad.
+
 ## Versiones independientes
 
 CoreRPG mantendrá separados cuatro ejes de evolución:
@@ -776,18 +818,23 @@ funcionales posteriores:
   identidad viva, estado, revisión, determinismo y fronteras de mutación.
 - **4.4 — content pack system:** reconcilia y cierra el alcance del sistema ya
   construido sin repetir 4.2 ni inventar payloads o modelos de dominio.
-- **4.5 — Generic World State:** comienza cuando `WorldState` adquiere registros
-  vivos y desarrolla un estado genérico real más allá del contador mínimo
-  actual. Bootstrap, spawning, templates, archetypes, provenance viva y el
-  puente general `DefinitionId` -> `EntityId` no pertenecen a 4.4.
+- **4.5 — Generic World State:** incorpora identidad runtime, enumeración
+  determinista y contención persistente opcional, con mutación controlada,
+  revisión, atomicidad local y copia independiente. No completa el modelo
+  general de componentes, bootstrap, spawning, templates, archetypes,
+  provenance viva ni el puente `DefinitionId` -> `EntityId`. Que estas
+  capacidades estén fuera de 4.4 no implica que se implementen en 4.5.
 - **4.6 — RNG + rules:** define ownership, streams, política de semillas y
   reglas funcionales sobre la infraestructura determinista existente.
 - **4.10 — actions + simulation:** introduce el modelo general de acciones y
   simulación del que `RollAction` es sólo una vertical inicial.
 
 La frontera entre 4.4 y 4.5 queda así fijada: 4.4 termina en la definición y
-validación de contenido declarativo; 4.5 empieza cuando ese contenido pueda
-relacionarse con registros vivos de un Generic World State real.
+validación de contenido declarativo; 4.5 desarrolla hechos runtime mutables
+independientes del catálogo. No requiere ni implementa todavía la asociación
+general entre definiciones y entidades vivas. Los documentos históricos de
+4.2 a 4.4 describen su alcance al cierre; no se reescriben para atribuirles
+esta delimitación incremental posterior.
 
 El contenido tipado de dominio se introducirá cuando exista un primer modelo
 concreto validado y un consumidor real. En ese momento se decidirá si encaja en

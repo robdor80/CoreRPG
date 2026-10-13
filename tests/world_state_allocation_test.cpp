@@ -76,29 +76,33 @@ TEST(WorldStateAllocationTest, FailedFirstAssociationPreservesTheEntireWorld) {
 }
 
 TEST(WorldStateAllocationTest, FailedInsertionPreservesAllExistingLinksAndRevision) {
-    corerpg::detail::ContainmentLinks links;
-    links.reserve(3);
-    const auto capacity = links.capacity();
-    const EntityId container{capacity + 2U};
-    for (std::size_t i = 0; i < capacity; ++i) {
-        links.emplace_back(EntityId{i + 1U}, container);
-    }
-    const auto original = links;
-    std::uint64_t revision = 17;
-    bool threw = false;
-    {
-        AllocationFailure failure;
-        try {
-            static_cast<void>(corerpg::detail::place_entity(
-                links, container.value(), revision, EntityId{capacity + 1U}, container));
-        } catch (const std::bad_alloc&) {
-            threw = true;
+    for (const bool insert_before : {false, true}) {
+        SCOPED_TRACE(insert_before);
+        corerpg::detail::ContainmentLinks links;
+        links.reserve(3);
+        const auto capacity = links.capacity();
+        const EntityId container{capacity + 2U};
+        for (std::size_t i = 0; i < capacity; ++i) {
+            links.emplace_back(EntityId{i + (insert_before ? 2U : 1U)}, container);
         }
+        const EntityId entity{insert_before ? 1U : capacity + 1U};
+        const auto original = links;
+        std::uint64_t revision = 17;
+        bool threw = false;
+        {
+            AllocationFailure failure;
+            try {
+                static_cast<void>(corerpg::detail::place_entity(
+                    links, container.value(), revision, entity, container));
+            } catch (const std::bad_alloc&) {
+                threw = true;
+            }
+        }
+        EXPECT_TRUE(threw);
+        EXPECT_TRUE(allocation_failed);
+        EXPECT_EQ(links, original);
+        EXPECT_EQ(revision, 17U);
     }
-    EXPECT_TRUE(threw);
-    EXPECT_TRUE(allocation_failed);
-    EXPECT_EQ(links, original);
-    EXPECT_EQ(revision, 17U);
 }
 
 TEST(WorldStateAllocationTest, ReassociationAndWithdrawalDoNotAllocate) {
