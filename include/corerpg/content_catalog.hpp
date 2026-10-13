@@ -3,6 +3,7 @@
 #include <cstddef>
 #include <variant>
 #include <vector>
+#include <string_view>
 
 #include "corerpg/content_diagnostic.hpp"
 #include "corerpg/content_pack_input.hpp"
@@ -21,6 +22,8 @@ public:
     [[nodiscard]] bool empty() const noexcept;
     [[nodiscard]] bool contains(const DefinitionId& id) const noexcept;
     [[nodiscard]] const ResourceDefinition* find(const DefinitionId& id) const noexcept;
+    /// Non-allocating resolution of a persisted canonical identifier.
+    [[nodiscard]] const ResourceDefinition* find_by_value(std::string_view id) const noexcept;
     [[nodiscard]] const std::vector<ResourceDefinition>& definitions() const noexcept;
 
 private:

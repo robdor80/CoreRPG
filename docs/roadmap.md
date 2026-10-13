@@ -9,7 +9,8 @@ Este documento añade **criterios transversales** a la hoja de ruta incremental.
 
 - Fases **4.1–4.5 cerradas**. La fase 4.5 (Generic World State) se integró en `main` mediante PR #3, merge `d23c400`, con CI de `main` Windows/MSVC y Linux/GCC superada (run `38365231770`). Véase el [acta 4.5](phases/4.5-generic-world-state.md).
 - **4.6 — RNG + Rules:** fusionada mediante PR #4, merge `8f1cbf72003631706e96ce79100b7dd504268ed0`; CI de `main` Windows/MSVC y Linux/GCC superada ([run 38374915709](https://github.com/robdor80/CoreRPG/actions/runs/38374915709)). Documento histórico en [4.6](phases/4.6-rng-rules.md).
-- **4.7 — Persistence:** implementada en `feat/persistence`, pendiente de auditoría, integración y CI final de `main`. Snapshots exactos del estado actual, codec binario v1 y restauración atómica; evidencias en [4.7](phases/4.7-persistence.md).
+- **4.7 — Persistence:** integrada mediante PR #5, merge `483ad13ff9d68fc3f23146b4f01e26904d5ac3a9`, CI de main Windows/MSVC y Linux/GCC superada ([38381606241](https://github.com/robdor80/CoreRPG/actions/runs/38381606241)). Evidencias en [4.7](phases/4.7-persistence.md).
+- **4.8 — Entidades/población/relaciones:** implementada en `feat/entities-population`, pendiente de auditoría, integración y CI final de main. Clasificación y garantías en [ADR-0003](adr/0003-generic-population-relations.md) y [Fase 4.8](phases/4.8-entities-population.md).
 - El estado de una rama no acredita que la fase ya esté fusionada en `main`.
 - Aún no están implementados: registro rico de personajes, horario/estado vivo completo, simulación fuera de escena, almacenamiento físico del Host y migraciones de guardados, autoridad contextual/órdenes ejecutables, módulos de Host, Companion y sus HUD. Los contratos de los juegos no equivalen a una implementación C++ del Core.
 
@@ -30,8 +31,8 @@ Este documento añade **criterios transversales** a la hoja de ruta incremental.
 | --- | --- |
 | **4.5 Generic World State** | **CERRADA**, con identidad, revisión, enumeración, contención y tests integrados. Sin Android, UE5, Companion, serialización o modelos de dominio. |
 | **4.6 RNG + Rules** | **FUSIONADA:** ownership de streams RNG y reglas estructurales puras; conserva SplitMix64, sin dependencia gráfica, canon ni ActionEngine 4.10. |
-| **4.7 Persistence** | **IMPLEMENTADA EN RAMA, PENDIENTE DE REVISIÓN:** identidades, asignador, revisión, vínculos, master seed y streams exactos. Codec v1 portable y versionado, sin rerollear ni campos especulativos. |
-| **4.8 Entidades/población/familias** | **Reevaluar alcance multiuniverso antes de implementar**: población latente, materialización, actividades y relaciones no deben introducir humanidad o familias como requisito universal. |
+| **4.7 Persistence** | **FUSIONADA:** identidades, asignador, revisión, vínculos, master seed y streams exactos. Codec v1 y restauración atómica. |
+| **4.8 Entidades/población/relaciones** | **IMPLEMENTADA EN RAMA, PENDIENTE DE REVISIÓN:** reservas agregadas, emisión acotada, origen inmutable, bindings y grafo genérico. Persistencia v2 con lectura v1 intacta. Familias y rango fuera del Core. |
 | **4.9 Knowledge & Visibility** | Proyecciones por observador. Host, Companion y NPC no deben recibir información oculta no autorizada. |
 | **4.10 Actions + Simulation** | Solicitudes estructuradas y resultados validados por autoridad técnica única; simulación off-screen causal. **Después del mínimo funcional**, reevaluar la propuesta de iniciativa, autoridad contextual, compromisos y delegación; no crear segundo ActionEngine. |
 | **4.11 Inspector** | Observación no mutante del estado lógico; diagnóstico para Hosts y validación. |
@@ -49,7 +50,7 @@ No significa que todos los conceptos de las fases posteriores pertenezcan al Cor
 - PR #3 fusionada en `main`, commit `d23c400`; tres incrementos integrados.
 - CI de `main`: Windows/MSVC y Linux/GCC correctas, run `38365231770`.
 - Acta histórica: [4.5 Generic World State](phases/4.5-generic-world-state.md). No confundir persistencia lógica en memoria con guardado en disco.
-- 4.6 se fusionó después mediante PR #4. Fase actual: **4.7 Persistence**, rama `feat/persistence`, pendiente de revisión e integración.
+- 4.6 y 4.7 se fusionaron después mediante PR #4 y PR #5. Fase actual: **4.8**, rama `feat/entities-population`, pendiente de revisión e integración.
 
 ### P1 — Prueba Android NDK temprana (imprescindible)
 
@@ -133,4 +134,4 @@ No significa que todos los conceptos de las fases posteriores pertenezcan al Cor
 7. CI Windows/Linux no sustituye las pruebas Android NDK y UE5.
 8. No se reabre 4.5 para introducir redes, UI ni sistemas posteriores.
 
-**Siguiente paso del Core:** auditar 4.7 en su PR Draft y, tras aprobación, integrar y verificar CI de `main` antes de declarar el cierre. P1 Android NDK sigue siendo una verificación de portabilidad independiente.
+**Siguiente paso del Core:** auditar 4.8 en su PR Draft y, tras aprobación, integrar y verificar CI de main antes de declarar cierre. 4.9 no está iniciada. P1 Android NDK sigue siendo una verificación independiente.

@@ -13,6 +13,8 @@ namespace corerpg {
 /// Stable identity of a logical definition supplied by a Content Pack.
 class DefinitionId final {
 public:
+    /// Same grammar as parse(), without construction or allocation.
+    [[nodiscard]] static bool is_valid_text(std::string_view text) noexcept;
     [[nodiscard]] static std::optional<DefinitionId> parse(std::string_view text);
 
     [[nodiscard]] std::string_view value() const noexcept { return value_; }

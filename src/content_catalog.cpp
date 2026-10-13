@@ -366,6 +366,14 @@ const ResourceDefinition* ContentCatalog::find(const DefinitionId& id) const noe
     return &*definition;
 }
 
+const ResourceDefinition* ContentCatalog::find_by_value(std::string_view id) const noexcept {
+    const auto position = std::lower_bound(definitions_.begin(), definitions_.end(), id,
+                                           [](const auto& definition, std::string_view value) {
+                                               return definition.id().value() < value;
+                                           });
+    return position != definitions_.end() && position->id().value() == id ? &*position : nullptr;
+}
+
 const std::vector<ResourceDefinition>& ContentCatalog::definitions() const noexcept {
     return definitions_;
 }

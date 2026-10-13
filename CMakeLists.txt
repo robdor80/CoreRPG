@@ -29,6 +29,8 @@ target_sources(
         src/content_catalog.cpp
         src/content_diagnostic.cpp
         src/content_id.cpp
+        src/entity_structure.cpp
+        src/population.cpp
         src/semantic_version.cpp
         src/version_requirement.cpp
         src/random.cpp
@@ -52,6 +54,7 @@ target_sources(
             include/corerpg/definition_reference.hpp
             include/corerpg/definition_id.hpp
             include/corerpg/entity_id.hpp
+            include/corerpg/entity_structure.hpp
             include/corerpg/pack_dependency.hpp
             include/corerpg/pack_id.hpp
             include/corerpg/persistence.hpp

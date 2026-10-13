@@ -105,4 +105,10 @@ std::optional<DefinitionId> DefinitionId::parse(std::string_view text) {
     return DefinitionId{std::move(*pack_id), std::string{local_path}, std::string{text}};
 }
 
+bool DefinitionId::is_valid_text(std::string_view text) noexcept {
+    const auto separator = text.find(':');
+    return separator != std::string_view::npos && is_valid_pack_id(text.substr(0, separator)) &&
+           is_valid_local_path(text.substr(separator + 1));
+}
+
 } // namespace corerpg

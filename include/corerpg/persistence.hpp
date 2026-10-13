@@ -6,6 +6,8 @@
 #include <cstdint>
 #include <optional>
 #include <span>
+#include <string>
+#include <string_view>
 #include <utility>
 #include <vector>
 
@@ -13,6 +15,23 @@ namespace corerpg {
 
 inline constexpr std::uint32_t save_format_version = 1;
 inline constexpr std::uint32_t save_rng_policy = 1;
+inline constexpr std::uint32_t save_format_version_v2 = 2;
+
+/// Owned canonical text, resolved to a strong DefinitionId against the supplied catalog at load.
+struct DefinitionBindingSnapshot final {
+    EntityId entity;
+    std::string definition_id;
+    DefinitionBindingSnapshot() : definition_id{"", 0} {}
+    DefinitionBindingSnapshot(EntityId id, std::string_view definition)
+        : entity{id}, definition_id{definition.data(), definition.size()} {}
+    DefinitionBindingSnapshot(const DefinitionBindingSnapshot&) = default;
+    DefinitionBindingSnapshot& operator=(const DefinitionBindingSnapshot&) = default;
+    DefinitionBindingSnapshot& operator=(DefinitionBindingSnapshot&&) = default;
+    // Copy string construction propagates MSVC debug-proxy failures, unlike string move.
+    DefinitionBindingSnapshot(DefinitionBindingSnapshot&& other)
+        : entity{other.entity}, definition_id{other.definition_id} {}
+    bool operator==(const DefinitionBindingSnapshot&) const = default;
+};
 
 struct ContainmentSnapshot final {
     EntityId entity;
@@ -38,6 +57,10 @@ struct CampaignSnapshot final {
     // default vector construction and vector moves are noexcept on that STL.
     std::vector<ContainmentSnapshot> containment = std::vector<ContainmentSnapshot>(0);
     std::vector<RandomStreamSnapshot> streams = std::vector<RandomStreamSnapshot>(0);
+    std::vector<DefinitionBindingSnapshot> definitions = std::vector<DefinitionBindingSnapshot>(0);
+    std::vector<EntityRelation> relations = std::vector<EntityRelation>(0);
+    std::vector<PopulationRecord> populations = std::vector<PopulationRecord>(0);
+    std::vector<PopulationMembership> population_memberships = std::vector<PopulationMembership>(0);
 
     CampaignSnapshot() = default;
     CampaignSnapshot(const CampaignSnapshot&) = default;
@@ -49,6 +72,10 @@ struct CampaignSnapshot final {
           master_seed{other.master_seed} {
         containment.swap(other.containment);
         streams.swap(other.streams);
+        definitions.swap(other.definitions);
+        relations.swap(other.relations);
+        populations.swap(other.populations);
+        population_memberships.swap(other.population_memberships);
     }
     bool operator==(const CampaignSnapshot&) const = default;
 };
@@ -58,6 +85,11 @@ struct PersistenceLimits final {
     std::uint64_t max_bytes{64ULL * 1024ULL * 1024ULL};
     std::uint64_t max_links{1'000'000};
     std::uint64_t max_streams{1'000'000};
+    std::uint64_t max_definitions{1'000'000};
+    std::uint64_t max_relations{1'000'000};
+    std::uint64_t max_populations{1'000'000};
+    std::uint64_t max_memberships{1'000'000};
+    std::uint64_t max_definition_bytes{4096};
 };
 
 enum class PersistenceStatus : std::uint8_t {
@@ -73,6 +105,17 @@ enum class PersistenceStatus : std::uint8_t {
     noncanonical_links,
     cycle_detected,
     noncanonical_streams,
+    unexpected_fields,
+    invalid_definition,
+    noncanonical_definitions,
+    invalid_relation,
+    noncanonical_relations,
+    invalid_population,
+    noncanonical_populations,
+    invalid_membership,
+    noncanonical_memberships,
+    catalog_required,
+    definition_not_found,
 };
 
 struct SerializedSnapshot final {
@@ -102,6 +145,7 @@ struct DecodedSnapshot final {
 /// Callers must exclude concurrent mutations throughout capture/restore/load.
 class Persistence final {
   public:
+    /// Chooses v1 only for lossless legacy state, otherwise explicit v2.
     [[nodiscard]] static CampaignSnapshot capture(const WorldState& world,
                                                   const RandomStreams& random);
     [[nodiscard]] static PersistenceStatus validate(const CampaignSnapshot& snapshot,
@@ -111,12 +155,15 @@ class Persistence final {
     [[nodiscard]] static DecodedSnapshot deserialize(std::span<const std::uint8_t> bytes,
                                                      PersistenceLimits limits = {});
     /// Replaces both destinations together; success invalidates old stream references.
+    /// A catalog is required to resolve persisted definition bindings; it is never loaded here.
     [[nodiscard]] static PersistenceStatus restore(const CampaignSnapshot& snapshot,
                                                    WorldState& world, RandomStreams& random,
-                                                   PersistenceLimits limits = {});
+                                                   PersistenceLimits limits = {},
+                                                   const ContentCatalog* catalog = nullptr);
     [[nodiscard]] static PersistenceStatus load(std::span<const std::uint8_t> bytes,
                                                 WorldState& world, RandomStreams& random,
-                                                PersistenceLimits limits = {});
+                                                PersistenceLimits limits = {},
+                                                const ContentCatalog* catalog = nullptr);
 };
 
 } // namespace corerpg

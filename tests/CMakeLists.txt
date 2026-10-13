@@ -20,6 +20,9 @@ add_executable(
     content_pack_validation_test.cpp
     content_manifest_test.cpp
     content_id_test.cpp
+    entity_structure_test.cpp
+    population_test.cpp
+    population_persistence_test.cpp
     persistence_test.cpp
     random_test.cpp
     random_streams_test.cpp
@@ -82,6 +85,17 @@ elseif(CMAKE_CXX_COMPILER_ID MATCHES "Clang|GNU")
     target_compile_options(corerpg_persistence_allocation_tests PRIVATE -Wall -Wextra -Wpedantic)
 endif()
 gtest_discover_tests(corerpg_persistence_allocation_tests)
+
+add_executable(corerpg_entity_structure_allocation_tests entity_structure_allocation_test.cpp)
+target_link_libraries(corerpg_entity_structure_allocation_tests PRIVATE CoreRPG::CoreRPG GTest::gtest_main)
+set_target_properties(corerpg_entity_structure_allocation_tests
+    PROPERTIES CXX_STANDARD 20 CXX_STANDARD_REQUIRED YES CXX_EXTENSIONS NO)
+if(MSVC)
+    target_compile_options(corerpg_entity_structure_allocation_tests PRIVATE /W4 /permissive-)
+elseif(CMAKE_CXX_COMPILER_ID MATCHES "Clang|GNU")
+    target_compile_options(corerpg_entity_structure_allocation_tests PRIVATE -Wall -Wextra -Wpedantic)
+endif()
+gtest_discover_tests(corerpg_entity_structure_allocation_tests)
 
 if(CORERPG_BUILD_CONTENT_JSON)
     add_executable(

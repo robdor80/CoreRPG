@@ -1,6 +1,7 @@
 # Formato de guardado CoreRPG v1
 
-Especificación del contrato de Fase 4.7, pendiente de revisión e integración.
+Especificación del contrato de Fase 4.7, integrado mediante PR #5 en `483ad13`.
+4.8 conserva este formato y añade [v2](persistence-format-v2.md) explícitamente.
 `save_format_version = 1` es independiente de la versión de biblioteca y de
 los contratos de Content Packs. No implica compatibilidad con versiones
 desconocidas ni migraciones automáticas.
@@ -79,7 +80,7 @@ stream() ni tiradas. El destino y RNG originales permanecen intactos ante
 error. Éxito reemplaza ambos y anula referencias previas a streams. La
 atomicidad es de una llamada sin concurrencia, no una transacción de disco.
 
-No hay migradores, forward compatibility, blobs desconocidos, compresión ni
+En v1 no hay migradores, forward compatibility, blobs desconocidos, compresión ni
 historial de RNG. Las mismas entradas y operaciones siguientes deben producir
 los mismos resultados; otros RNG privados del Host quedan fuera del snapshot.
 La compatibilidad Windows/Linux se comprobará con bytes dorados compartidos,

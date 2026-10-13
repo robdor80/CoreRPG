@@ -328,10 +328,9 @@ un `WorldState`: dos mundos independientes pueden emitir correctamente
 
 `DefinitionId` y `EntityId` también separan contenido e instancia. El primero
 identifica de forma estable una definición declarativa; el segundo, una entidad
-viva en un mundo. Todavía no existe una relación general de instanciación
-`DefinitionId` -> `EntityId`, ni provenance de instancia, spawning, templates o
-archetypes. Esta ausencia es deliberada hasta que una fase posterior demuestre
-qué contrato necesita.
+viva en un mundo. 4.8 permite una asociación opcional e inmutable a DefinitionId
+existente, sin aplicar propiedades o instanciar payloads. No hay spawning de
+arquetipos ricos, templates o registro universal de componentes.
 
 ## Estado vivo mínimo
 
@@ -341,7 +340,9 @@ emitidos y expone `entity_count()` y `revision()`. El Incremento 2 de 4.5 añade
 su primera capacidad persistente mutable: contención directa, discreta y
 opcional entre entidades runtime. No contiene registros universales de
 entidad, componentes, propiedades, localizaciones métricas, inventarios,
-lifecycle, eliminación ni provenance de definiciones.
+lifecycle ni eliminación. 4.8 añade bindings opcionales a definiciones,
+relaciones tipadas y reservas con origen de unidades emitidas, como se describe
+en su sección específica.
 
 El Incremento 1 de 4.5 refuerza estos fundamentos y añade
 `next_entity_id(EntityId after)`. Devuelve por valor el menor ID existente
@@ -367,8 +368,9 @@ modifican. No representa tiempo del mundo, tick,
 turno, fecha ni calendario.
 
 Las futuras extensiones conservarán el contrato de mutación: una operación
-persistente aceptada incrementa la revisión exactamente una vez y una operación
-rechazada preserva `WorldState`. Esto fija la frontera de autoridad sin afirmar
+persistente simple aceptada incrementa la revisión exactamente una vez y una
+operación rechazada preserva `WorldState`. El lote 4.8 publica N creaciones
+elementales atómicas y aumenta revisión N veces. Esto fija la frontera sin afirmar
 que ya exista el futuro sistema general de acciones.
 
 La creación comprueba por separado el agotamiento de IDs y de revisión antes
@@ -515,12 +517,12 @@ Las fronteras futuras son:
 
 - **4.6 — RNG + Rules:** consultar contención no consume RNG ni ejecuta reglas.
   Las reglas específicas permanecen fuera de estas primitivas estructurales.
-- **4.7 — Persistence:** deberá preservar identidades, estado del asignador,
+- **4.7 — Persistence:** preserva identidades, estado del asignador,
   revisión y vínculos. La carga reconstruye el estado completo sin repetir
   mutaciones ni incrementar la revisión por cada vínculo restaurado; las APIs
   y el formato se describen en la sección de persistencia siguiente.
-- **4.8:** su alcance requiere revisión multiuniverso; no se anticipan familias,
-  personajes ni población.
+- **4.8:** la revisión multiuniverso distingue reservas y relaciones genéricas
+  de familias, organización específica y representación. Véase ADR-0003.
 - **4.9 — Knowledge & Visibility:** los vínculos son realidad autoritativa,
   no conocimiento o percepción de un observador.
 - **4.10 — Actions + Simulation:** la atomicidad actual es local a cada
@@ -566,7 +568,58 @@ detecta corrupción accidental y no autentica datos manipulados. El Host
 coordina un punto sin mutaciones concurrentes: la atomicidad de carga no
 constituye sincronización entre hilos ni una transacción de filesystem.
 
-La Fase 4.7 permanece pendiente de revisión, integración y CI final de `main`.
+La Fase 4.7 está integrada mediante PR #5, commit `483ad13`, con CI de main
+superada en [38381606241](https://github.com/robdor80/CoreRPG/actions/runs/38381606241).
+
+## 4.8 — Entidades, reservas y relaciones
+
+[ADR-0003](adr/0003-generic-population-relations.md) clasifica explícitamente las
+necesidades. WorldState conserva una sola autoridad: añade tablas privadas
+ordenadas para bindings a definiciones, triples dirigidos, reservas y orígenes.
+No existe un ECS, property bag, familia universal o modelo humano de población.
+Sus APIs y evidencias están en [Fase 4.8](phases/4.8-entities-population.md).
+
+El binding es opcional, valida existencia en ContentCatalog y es inmutable;
+repetirlo es no-op y otro ID se rechaza. La tabla de cada mundo es independiente;
+copias pueden compartir valores de DefinitionId inmutables, sin compartir
+mutaciones. No se copian ni generan payloads. Las operaciones siguientes siguen
+requiriendo una futura política de gameplay bajo la autoridad del Core.
+
+EntityRelation es (source, RelationKind, target), con tipo uint64 estable no
+nulo y extremos existentes. Los triples son únicos y se consultan en orden
+source/kind/target. Ciclos, self edges y varios tipos entre el mismo par son
+válidos; no implican simetría, mando o parentesco. Contención conserva sus
+propias restricciones y no se usa como pertenencia social.
+
+Una reserva se declara en una entidad existente y conserva total original y
+cantidad latente. Las unidades latentes no tienen identidad todavía. Un lote
+acotado emite N EntityId contiguos, registra un origen inmutable y reduce latent
+por N. Conservación: total = latent + número de orígenes. El origen describe la
+reserva que individualizó, no pertenencia organizativa actual. La declaración
+original repetida no repone unidades ni recrea individuos.
+
+Materialize publica N creaciones elementales atómicamente y aumenta revisión
+N veces; las mutaciones simples siguen aumentándola una vez. Todos los límites
+se comprueban antes de reservar memoria; después se añaden registros escalares
+sin excepciones y se publican contadores. No hay consumo RNG ni generación
+de datos no definidos. Copias y fallos preservan el estado completo.
+
+El Host decide qué IDs representar, sin un flag visual en el Core. Descargar
+una escena no desindividualiza ni destruye. No hay actualización permanente,
+agenda o simulación por individuo. El coste agregado depende de reservas, no
+del tamaño de su total latente ni del número de gráficos activos.
+
+El [formato v2](persistence-format-v2.md) extiende los snapshots explícitamente.
+V1 continúa leyendo y reexportando sus bytes; no acepta campos nuevos. Capture
+selecciona el formato mínimo sin pérdida. V2 incluye bindings, relaciones,
+reservas y orígenes, con conservación, orden e integridad validados. Restore
+requiere catálogo si hay bindings y prepara ambos valores antes de publicar
+todas las tablas y RNG. No se guarda ni carga contenido externo automáticamente.
+La selección de versiones de packs y generación de arquetipos ricos queda aplazada.
+
+4.8 permanece preparada para revisión; no se han iniciado Knowledge 4.9 ni
+Actions/Simulation 4.10. Familias, rangos, especies y ciudadanía son políticas
+externas o candidatos reutilizables que requieren invariantes demostradas.
 
 ## Versiones independientes
 
@@ -605,9 +658,9 @@ compatibilidad.
 ## Catálogo de contenido en memoria
 
 `ContentCatalog` representa definiciones declarativas validadas e inmutables;
-`WorldState` representa la realidad viva de una partida. Todavía no existe el
-puente general entre ambos, y este contrato no intenta diseñarlo de forma
-anticipada.
+`WorldState` representa la realidad viva de una partida. El binding 4.8 sólo
+conserva una referencia estable a definición validada. No aplica payloads ni
+implementa instanciación general o bootstrap de universos.
 
 `ResourceKind` identifica una clase lógica de recurso mediante la gramática
 `[a-z][a-z0-9_-]*`. Es un identificador canónico abierto, no una ruta, una
@@ -897,6 +950,9 @@ funcionales posteriores:
 - **4.7 — Persistence:** snapshots completos, codec binario versionado y
   restauración atómica de WorldState y RandomStreams; almacenamiento físico
   del Host y sistemas de gameplay futuros quedan fuera.
+- **4.8 — Entidades/población/relaciones:** bindings, grafo tipado, reservas
+  latentes, individualización acotada y persistencia v2; sin modelos de familia,
+  profesiones o generación de arquetipos ricos.
 - **4.10 — actions + simulation:** introduce el modelo general de acciones y
   simulación del que `RollAction` es sólo una vertical inicial.
 
