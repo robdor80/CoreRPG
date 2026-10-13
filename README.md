@@ -77,8 +77,10 @@ cero es válido como valor, pero su existencia siempre se consulta respecto de
 un mundo concreto; los IDs no son globalmente únicos entre mundos.
 
 `DeterministicRandom` y `RollAction` forman una primera vertical reproducible
-de input estructurado, validación y resultado explícito. Son infraestructura de
-foundation, no los sistemas completos de reglas y acciones. El contrato lógico
+de input estructurado, validación y resultado explícito. En la rama 4.6 se
+incorporan `RandomStreams` (streams separados con master seed explícita) y
+`RuleCheck` (comprobaciones puras de existencia y contención). No constituyen
+un motor general de acciones, permisos ni políticas de universo. El contrato lógico
 declarativo de Content Packs aporta identidades estables, versiones,
 compatibilidad, manifests, dependencias directas, definiciones y un
 `ContentCatalog` inmutable cuya construcción realiza la validación semántica
@@ -100,15 +102,15 @@ relaciones, pero todavía no transporta propiedades de dominio ni ofrece
 payloads genéricos o tipados. Esa extensión se diseñará sólo cuando exista un
 primer modelo concreto validado y un consumidor real.
 
-Todavía no hay un estado del mundo genérico completo, sistemas funcionales de
-reglas, acciones o simulación, persistencia, conocimiento, población, gameplay
-ni Content Packs reales. La fase 4.2 construyó sustancialmente la
-infraestructura genérica del Content Pack system y 4.3 cerró el contrato del
-núcleo mínimo. La fase 4.4 reconcilia y cierra el alcance de contenido sin
-duplicar 4.2; 4.5 está en desarrollo y añade la primera capacidad de estado vivo
-genérico real. El puente general `DefinitionId` -> `EntityId` no pertenece a
-4.4. Las fases 4.6 y 4.10 abordarán respectivamente RNG y reglas funcionales, y
-el modelo general de acciones y simulación.
+Todavía no hay un estado del mundo genérico completo, un sistema extensible de
+reglas de gameplay, un ActionEngine general, simulación, persistencia, conocimiento,
+población, gameplay ni Content Packs reales. Las fases 4.2–4.4 cerraron el
+contenido declarativo y el Core mínimo sin inventar dominio; **4.5 quedó
+fusionada y validada** y aporta los vínculos vivos estructurales. **4.6 está en
+desarrollo en `feat/rng-rules`**, con ownership de RNG y comprobaciones de reglas
+estructurales puras; no proporciona todavía acciones generales. El puente
+`DefinitionId`→`EntityId`, la persistencia, la política institucional y la
+simulación son asuntos futuros. 4.10 contempla Actions + Simulation.
 
 ## Compilación
 
@@ -146,3 +148,5 @@ adoptada antes de la fase 4.5 se documenta de forma normativa en
 [`docs/multi-universe-architecture.md`](docs/multi-universe-architecture.md) y
 su decisión arquitectónica se registra en
 [`docs/adr/0001-multi-universe-architecture.md`](docs/adr/0001-multi-universe-architecture.md).
+
+Documentación de etapas: [cierre 4.5](docs/phases/4.5-generic-world-state.md) · [plan 4.6](docs/phases/4.6-rng-rules.md) · [roadmap](docs/roadmap.md).

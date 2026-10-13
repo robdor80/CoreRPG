@@ -1,16 +1,16 @@
 # CoreRPG — Roadmap vivo: fases, plataformas y Hosts
 
-**Fecha de revisión:** 2026-10-10.  
-**Referencias:** [Arquitectura](architecture.md), [ADR-0001](adr/0001-multi-universe-architecture.md), [ADR-0002](adr/0002-platforms-presentation-companion.md).
+**Fecha de revisión:** 2026-10-13.  
+**Referencias:** [Arquitectura](architecture.md), [ADR-0001](adr/0001-multi-universe-architecture.md), [ADR-0002](adr/0002-platforms-presentation-companion.md), [4.5 cierre](phases/4.5-generic-world-state.md), [4.6 plan](phases/4.6-rng-rules.md), [RFC iniciativa NPC](proposals/npc-initiative-authority-delegation.md).
 
 Este documento añade **criterios transversales** a la hoja de ruta incremental. No renumera fases ni atribuye al Core capacidades no implementadas. El Core seguirá siendo un único núcleo C++20 independiente de la tecnología de presentación.
 
 ## Estado de partida
 
-- Fases **4.1–4.4** cerradas en la documentación histórica de CoreRPG.
-- **4.5 — Generic World State:** ABI/API todavía en evolución. Incrementos 1 y 2 publicados en `feat/generic-world-state` (commits `07d154d` y `2a3da89`), con CI Windows/MSVC y Linux/GCC superada. Incremento 3 informado como terminado localmente pero **pendiente de revisión, commit, push, CI, PR, merge y acta de cierre**. No afirmar 4.5 cerrada antes de completar esos pasos.
-- `main` de CoreRPG sigue en fase 4.4 al crear este documento. Evitar confundir estado de una rama y estado de `main`.
-- Aún no están implementados: registro rico de personajes, horario/estado vivo completo, simulación fuera de escena, persistencia de partidas, módulos de Host, Companion y sus HUD.
+- Fases **4.1–4.5 cerradas**. La fase 4.5 (Generic World State) se integró en `main` mediante PR #3, merge `d23c400`, con CI de `main` Windows/MSVC y Linux/GCC superada (run `38365231770`). Véase el [acta 4.5](phases/4.5-generic-world-state.md).
+- **4.6 — RNG + Rules:** ABI/API en desarrollo en `feat/rng-rules`; no se considera cerrada. Plan y evidencias incrementales en [docs/phases/4.6-rng-rules.md](phases/4.6-rng-rules.md).
+- El estado de una rama no acredita que la fase ya esté fusionada en `main`.
+- Aún no están implementados: registro rico de personajes, horario/estado vivo completo, simulación fuera de escena, persistencia de partidas, autoridad contextual/órdenes ejecutables, módulos de Host, Companion y sus HUD. Los contratos de los juegos no equivalen a una implementación C++ del Core.
 
 ## Plataformas y presentaciones fijadas
 
@@ -27,14 +27,14 @@ Este documento añade **criterios transversales** a la hoja de ruta incremental.
 
 | Fase | Alcance y nueva precaución |
 | --- | --- |
-| **4.5 Generic World State** | Cerrar identidad, revision, enumeración, contención y validaciones existentes; **sin** acoplar Android, UE5 o Companion. |
-| **4.6 RNG + Rules** | RNG y reglas genéricas independientes de gráficos/entradas; no convertir procedimientos de sensores o magia en reglas hardcoded del Core. |
-| **4.7 Persistence** | Restauración exacta de identidades, asignador, revision, vínculos y futuros hechos relevantes; contrato de guardado portable y versionado, sin rerollear identidades. |
+| **4.5 Generic World State** | **CERRADA**, con identidad, revisión, enumeración, contención y tests integrados. Sin Android, UE5, Companion, serialización o modelos de dominio. |
+| **4.6 RNG + Rules** | **EN CURSO:** ownership de streams RNG y reglas estructurales puras; conservar secuencia SplitMix64, sin dependencia gráfica ni semántica de sensores, magia, autoridad institucional o ActionEngine 4.10. |
+| **4.7 Persistence** | Restauración exacta de identidades, asignador, revisión, vínculos y estados RNG/streams que deban persistir; contrato portable/versionado sin rerollear. No introducir campos especulativos. |
 | **4.8 Entidades/población/familias** | **Reevaluar alcance multiuniverso antes de implementar**: población latente, materialización, actividades y relaciones no deben introducir humanidad o familias como requisito universal. |
-| **4.9 Knowledge & Visibility** | Proyecciones por observador. El Host/Companion no pueden recibir conocimiento oculto como datos visibles. |
-| **4.10 Actions + Simulation** | Solicitudes estructuradas y resultados validados por autoridad única; la simulación off-screen deberá preservar causalidad e identidad. |
+| **4.9 Knowledge & Visibility** | Proyecciones por observador. Host, Companion y NPC no deben recibir información oculta no autorizada. |
+| **4.10 Actions + Simulation** | Solicitudes estructuradas y resultados validados por autoridad técnica única; simulación off-screen causal. **Después del mínimo funcional**, reevaluar la propuesta de iniciativa, autoridad contextual, compromisos y delegación; no crear segundo ActionEngine. |
 | **4.11 Inspector** | Observación no mutante del estado lógico; diagnóstico para Hosts y validación. |
-| **4.12 Context Builder + AI** | Contextos autorizados; IA sin acceso directo de mutación. |
+| **4.12 Context Builder + AI** | Contextos autorizados; propuestas de IA opcionales sujetas a revalidación; sin mutación directa ni dependencia obligatoria de API remota. |
 | **4.13 Primer Content Pack Nimroel** | Contenido real y validación de un consumidor, sin imponer un renderizador. |
 | **4.14 Integración prevista con Unreal** | Vinculada específicamente al Host **Star Trek/UE5**. **No** obliga a Nimroel a usar Unreal. La integración de Nimroel 2D se planificará en paralelo como Host independiente, sin cambiar por ahora los números de fase. |
 | **4.15 Vertical slice Treskal** | Demostración real Nimroel en 2D; pruebas del estado, la presentación y la continuidad. |
@@ -43,11 +43,12 @@ No significa que todos los conceptos de las fases posteriores pertenezcan al Cor
 
 ## Hitos transversales y orden recomendado
 
-### P0 — Cerrar fase 4.5 (inmediato al retomar Codex; imprescindible)
+### P0 — Fase 4.5: cierre confirmado (COMPLETADO)
 
-1. Revisar los **cuatro archivos locales** del Incremento 3: `docs/architecture.md`, `tests/CMakeLists.txt`, `tests/world_state_allocation_test.cpp` y el nuevo `tests/world_state_integration_test.cpp`.
-2. Commit, push, CI de rama Windows/Linux, PR a `main`, merge, CI de `main` y acta histórica.
-3. **No sobrescribir ni alterar el árbol local pendiente de Codex** desde la línea de trabajo documental.
+- PR #3 fusionada en `main`, commit `d23c400`; tres incrementos integrados.
+- CI de `main`: Windows/MSVC y Linux/GCC correctas, run `38365231770`.
+- Acta histórica: [4.5 Generic World State](phases/4.5-generic-world-state.md). No confundir persistencia lógica en memoria con guardado en disco.
+- Fase siguiente: **4.6 RNG + Rules**, rama `feat/rng-rules`, progreso controlado por incrementos y CI.
 
 ### P1 — Prueba Android NDK temprana (imprescindible)
 
@@ -99,6 +100,15 @@ No significa que todos los conceptos de las fases posteriores pertenezcan al Cor
 - Windows con Companion: mismo HUD interno completo más pantalla adicional opcional.
 - No confundir UI Android del juego con UI Companion. La sincronización de partidas Windows↔Android es una posible decisión futura distinta.
 
+### P7 — Iniciativa, autoridad, encargos y delegación NPC (candidato aplazado)
+
+**Estado:** necesidad multiuniverso justificada en Star Trek y Nimroel, **sin contrato ni implementación autorizados**. Documento de análisis: [RFC iniciativa NPC](proposals/npc-initiative-authority-delegation.md).
+
+- Separar iniciativa de NPC, autoridad narrativa contextual, decisión de obedecer, disponibilidad de recursos y ejecución técnica autoritativa.
+- **No implementarlo en 4.6**: las comprobaciones puras de hechos no son un sistema de órdenes o tareas.
+- Revaluar una interfaz mínima después de Actions/Simulation 4.10, con Knowledge 4.9 y Persistence 4.7; considerar opción de sistema reutilizable separado y políticas específicas de cada juego.
+- Exigir acciones NPC fuera de escena, revocación de delegaciones, trazabilidad sin revelar secretos y tolerancia a caída de IA remota. No implantar una jerarquía universal.
+
 ## Riesgos y decisiones que quedan abiertos
 
 | Tema | Comprobación requerida | Evitar |
@@ -122,4 +132,4 @@ No significa que todos los conceptos de las fases posteriores pertenezcan al Cor
 7. CI Windows/Linux no sustituye las pruebas Android NDK y UE5.
 8. No se reabre 4.5 para introducir redes, UI ni sistemas posteriores.
 
-**Siguiente paso del Core:** concluir el Incremento 3 de 4.5, integrar su PR y documentar el cierre. En paralelo o poco después, ejecutar P1 Android NDK.
+**Siguiente paso del Core:** validar y cerrar 4.6 por incrementos en su rama/PR. Ejecutar tempranamente P1 Android NDK como verificación de portabilidad independiente.
