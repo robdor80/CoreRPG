@@ -77,8 +77,8 @@ cero es válido como valor, pero su existencia siempre se consulta respecto de
 un mundo concreto; los IDs no son globalmente únicos entre mundos.
 
 `DeterministicRandom` y `RollAction` forman una primera vertical reproducible
-de input estructurado, validación y resultado explícito. En la rama 4.6 se
-incorporan `RandomStreams` (streams separados con master seed explícita) y
+de input estructurado, validación y resultado explícito. La Fase 4.6 incorporó
+`RandomStreams` (streams separados con master seed explícita) y
 `RuleCheck` (comprobaciones puras de existencia y contención). No constituyen
 un motor general de acciones, permisos ni políticas de universo. El contrato lógico
 declarativo de Content Packs aporta identidades estables, versiones,
@@ -102,14 +102,23 @@ relaciones, pero todavía no transporta propiedades de dominio ni ofrece
 payloads genéricos o tipados. Esa extensión se diseñará sólo cuando exista un
 primer modelo concreto validado y un consumidor real.
 
+La Fase 4.7 implementa `Persistence`: snapshots del mundo y de su pool RNG,
+exportación binaria canónica versionada y restauración exacta y atómica. El
+Core entrega y recibe bytes; el Host conserva el control del almacenamiento
+físico. La [especificación v1](docs/persistence-format-v1.md) define tamaños,
+orden, CRC32C, validación y compatibilidad. El target principal no añade JSON
+ni filesystem. La fase está preparada en `feat/persistence`, pendiente de
+auditoría e integración; no se declara cerrada.
+
 Todavía no hay un estado del mundo genérico completo, un sistema extensible de
-reglas de gameplay, un ActionEngine general, simulación, persistencia, conocimiento,
+reglas de gameplay, un ActionEngine general, simulación, conocimiento,
 población, gameplay ni Content Packs reales. Las fases 4.2–4.4 cerraron el
 contenido declarativo y el Core mínimo sin inventar dominio; **4.5 quedó
-fusionada y validada** y aporta los vínculos vivos estructurales. **4.6 está en
-desarrollo en `feat/rng-rules`**, con ownership de RNG y comprobaciones de reglas
+fusionada y validada** y aporta los vínculos vivos estructurales. **4.6 está
+fusionada en `main`** (PR #4, `8f1cbf7`, CI Windows/Linux superada), con ownership
+de RNG y comprobaciones de reglas
 estructurales puras; no proporciona todavía acciones generales. El puente
-`DefinitionId`→`EntityId`, la persistencia, la política institucional y la
+`DefinitionId`→`EntityId`, la política institucional y la
 simulación son asuntos futuros. 4.10 contempla Actions + Simulation.
 
 ## Compilación
@@ -149,4 +158,4 @@ adoptada antes de la fase 4.5 se documenta de forma normativa en
 su decisión arquitectónica se registra en
 [`docs/adr/0001-multi-universe-architecture.md`](docs/adr/0001-multi-universe-architecture.md).
 
-Documentación de etapas: [cierre 4.5](docs/phases/4.5-generic-world-state.md) · [plan 4.6](docs/phases/4.6-rng-rules.md) · [roadmap](docs/roadmap.md).
+Documentación de etapas: [cierre 4.5](docs/phases/4.5-generic-world-state.md) · [historia 4.6](docs/phases/4.6-rng-rules.md) · [4.7 Persistence](docs/phases/4.7-persistence.md) · [roadmap](docs/roadmap.md).

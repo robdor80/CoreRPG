@@ -62,7 +62,8 @@ Versión y política deben coincidir exactamente. Longitud, límites y counts se
 comprueban sin desbordar y antes de asignar records; después se comprueba CRC.
 No se aceptan truncamientos, sufijos, referencias inexistentes, ID entidad cero,
 autocontención, más de un padre, ciclos ni revisiones inferiores al número de
-entidades más vínculos actuales. Un mundo sin entidades exige revisión cero.
+entidades más vínculos actuales. Un mundo con cero o una entidad exige revisión
+igual al conteo: todavía no puede haber tenido cambios de contención.
 La validación no pretende reconstruir todo el historial de mutaciones.
 
 Los límites por defecto son 64 MiB, 1 000 000 vínculos y 1 000 000 streams;
