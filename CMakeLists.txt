@@ -33,6 +33,7 @@ target_sources(
         src/version_requirement.cpp
         src/random.cpp
         src/random_streams.cpp
+        src/persistence.cpp
         src/rule_check.cpp
         src/resource_kind.cpp
         src/roll_action.cpp

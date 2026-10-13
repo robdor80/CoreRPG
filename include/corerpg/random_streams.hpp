@@ -32,6 +32,7 @@ public:
     [[nodiscard]] const DeterministicRandom* find_stream(stream_id_type stream_id) const noexcept;
 
 private:
+    friend class Persistence;
     seed_type master_seed_;
     std::map<stream_id_type, DeterministicRandom> streams_;
 };

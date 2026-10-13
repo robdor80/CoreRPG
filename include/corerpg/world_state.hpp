@@ -86,6 +86,7 @@ public:
     [[nodiscard]] ContainmentChange remove_containment(EntityId entity) noexcept;
 
 private:
+    friend class Persistence;
     EntityId::value_type last_entity_id_{0};
     revision_type revision_{0};
     std::vector<std::pair<EntityId, EntityId>> containment_;
