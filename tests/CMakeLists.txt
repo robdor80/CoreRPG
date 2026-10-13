@@ -22,6 +22,7 @@ add_executable(
     content_id_test.cpp
     entity_structure_test.cpp
     population_test.cpp
+    population_persistence_test.cpp
     persistence_test.cpp
     random_test.cpp
     random_streams_test.cpp

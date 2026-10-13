@@ -126,7 +126,7 @@ class WorldState final {
   private:
     friend class Persistence;
     /// Private validated staging path; may throw without touching an existing world.
-    explicit WorldState(const CampaignSnapshot& snapshot);
+    explicit WorldState(const CampaignSnapshot& snapshot, const ContentCatalog* catalog);
     constexpr void swap_state(WorldState& other) noexcept {
         std::swap(last_entity_id_, other.last_entity_id_);
         std::swap(revision_, other.revision_);

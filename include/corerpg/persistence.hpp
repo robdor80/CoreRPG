@@ -15,7 +15,7 @@ namespace corerpg {
 
 inline constexpr std::uint32_t save_format_version = 1;
 inline constexpr std::uint32_t save_rng_policy = 1;
-inline constexpr std::uint32_t population_save_format_version = 2;
+inline constexpr std::uint32_t save_format_version_v2 = 2;
 
 /// Owned canonical text, resolved to a strong DefinitionId against the supplied catalog at load.
 struct DefinitionBindingSnapshot final {
@@ -85,6 +85,11 @@ struct PersistenceLimits final {
     std::uint64_t max_bytes{64ULL * 1024ULL * 1024ULL};
     std::uint64_t max_links{1'000'000};
     std::uint64_t max_streams{1'000'000};
+    std::uint64_t max_definitions{1'000'000};
+    std::uint64_t max_relations{1'000'000};
+    std::uint64_t max_populations{1'000'000};
+    std::uint64_t max_memberships{1'000'000};
+    std::uint64_t max_definition_bytes{4096};
 };
 
 enum class PersistenceStatus : std::uint8_t {
@@ -101,6 +106,16 @@ enum class PersistenceStatus : std::uint8_t {
     cycle_detected,
     noncanonical_streams,
     unexpected_fields,
+    invalid_definition,
+    noncanonical_definitions,
+    invalid_relation,
+    noncanonical_relations,
+    invalid_population,
+    noncanonical_populations,
+    invalid_membership,
+    noncanonical_memberships,
+    catalog_required,
+    definition_not_found,
 };
 
 struct SerializedSnapshot final {
@@ -130,6 +145,7 @@ struct DecodedSnapshot final {
 /// Callers must exclude concurrent mutations throughout capture/restore/load.
 class Persistence final {
   public:
+    /// Chooses v1 only for lossless legacy state, otherwise explicit v2.
     [[nodiscard]] static CampaignSnapshot capture(const WorldState& world,
                                                   const RandomStreams& random);
     [[nodiscard]] static PersistenceStatus validate(const CampaignSnapshot& snapshot,
@@ -139,12 +155,15 @@ class Persistence final {
     [[nodiscard]] static DecodedSnapshot deserialize(std::span<const std::uint8_t> bytes,
                                                      PersistenceLimits limits = {});
     /// Replaces both destinations together; success invalidates old stream references.
+    /// A catalog is required to resolve persisted definition bindings; it is never loaded here.
     [[nodiscard]] static PersistenceStatus restore(const CampaignSnapshot& snapshot,
                                                    WorldState& world, RandomStreams& random,
-                                                   PersistenceLimits limits = {});
+                                                   PersistenceLimits limits = {},
+                                                   const ContentCatalog* catalog = nullptr);
     [[nodiscard]] static PersistenceStatus load(std::span<const std::uint8_t> bytes,
                                                 WorldState& world, RandomStreams& random,
-                                                PersistenceLimits limits = {});
+                                                PersistenceLimits limits = {},
+                                                const ContentCatalog* catalog = nullptr);
 };
 
 } // namespace corerpg
