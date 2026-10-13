@@ -85,8 +85,8 @@ declarativo de Content Packs aporta identidades estables, versiones,
 compatibilidad, manifests, dependencias directas, definiciones y un
 `ContentCatalog` inmutable cuya construcción realiza la validación semántica
 global de forma atómica y determinista. Las definiciones declarativas y las
-entidades vivas usan identidades diferentes y todavía no existe un puente
-general de instanciación entre ambas.
+entidades vivas usan identidades diferentes. La asociación opcional de 4.8
+conserva una referencia a DefinitionId existente; no instancia payloads ricos.
 
 La biblioteca opcional `CoreRPGContentJson` implementa el Content Contract JSON
 `0.1.0`: lectura JSON estricta, validación local mediante JSON Schema Draft
@@ -107,18 +107,28 @@ exportación binaria canónica versionada y restauración exacta y atómica. El
 Core entrega y recibe bytes; el Host conserva el control del almacenamiento
 físico. La [especificación v1](docs/persistence-format-v1.md) define tamaños,
 orden, CRC32C, validación y compatibilidad. El target principal no añade JSON
-ni filesystem. La fase está preparada en `feat/persistence`, pendiente de
-auditoría e integración; no se declara cerrada.
+ni filesystem. La fase quedó fusionada en `main` mediante PR #5, merge
+`483ad13`, con CI Windows/MSVC y Linux/GCC superada.
+
+La Fase 4.8 añade bindings opcionales a definiciones, relaciones dirigidas
+tipadas, reservas poblacionales agregadas y materialización lógica en lotes
+acotados. Las entidades emitidas conservan identidad y origen aunque el Host
+descargue su representación. No se generan nombres, profesiones o biografías.
+Familia, rango y autoridad permanecen fuera del núcleo. El formato
+[v2](docs/persistence-format-v2.md) preserva los datos nuevos; v1 conserva su
+lectura y sus bytes. Los bindings se resuelven contra un catálogo explícito al
+cargar. 4.8 está implementada en `feat/entities-population`, pendiente de
+auditoría e integración.
 
 Todavía no hay un estado del mundo genérico completo, un sistema extensible de
 reglas de gameplay, un ActionEngine general, simulación, conocimiento,
-población, gameplay ni Content Packs reales. Las fases 4.2–4.4 cerraron el
+simulación temporal de población, gameplay ni Content Packs reales. Las fases 4.2–4.4 cerraron el
 contenido declarativo y el Core mínimo sin inventar dominio; **4.5 quedó
 fusionada y validada** y aporta los vínculos vivos estructurales. **4.6 está
 fusionada en `main`** (PR #4, `8f1cbf7`, CI Windows/Linux superada), con ownership
 de RNG y comprobaciones de reglas
-estructurales puras; no proporciona todavía acciones generales. El puente
-`DefinitionId`→`EntityId`, la política institucional y la
+estructurales puras; no proporciona todavía acciones generales. La instanciación
+de payloads de arquetipos, la política institucional y la
 simulación son asuntos futuros. 4.10 contempla Actions + Simulation.
 
 ## Compilación
@@ -158,4 +168,4 @@ adoptada antes de la fase 4.5 se documenta de forma normativa en
 su decisión arquitectónica se registra en
 [`docs/adr/0001-multi-universe-architecture.md`](docs/adr/0001-multi-universe-architecture.md).
 
-Documentación de etapas: [cierre 4.5](docs/phases/4.5-generic-world-state.md) · [historia 4.6](docs/phases/4.6-rng-rules.md) · [4.7 Persistence](docs/phases/4.7-persistence.md) · [roadmap](docs/roadmap.md).
+Documentación de etapas: [cierre 4.5](docs/phases/4.5-generic-world-state.md) · [historia 4.6](docs/phases/4.6-rng-rules.md) · [4.7 Persistence](docs/phases/4.7-persistence.md) · [4.8 entidades/población](docs/phases/4.8-entities-population.md) · [roadmap](docs/roadmap.md).

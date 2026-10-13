@@ -13,6 +13,9 @@ todo el estado es representable en v1; selecciona v2 si hay bindings,
 relaciones, reservas, orígenes o una revisión no representable por las
 invariantes v1. El caller puede marcar explícitamente un candidato sin
 extensiones como v2. No se descartan campos al seleccionar v1.
+Bytes→snapshot→bytes conserva la versión recibida. Cargar y volver a capturar
+el mundo selecciona otra vez el mínimo sin pérdida; la versión física original
+no es estado autoritativo. Por ejemplo, un v2 vacío explícito se recaptura como v1.
 
 Serialize rechaza un v1 con cualquiera de los campos nuevos. Deserialize
 interpreta v1 sin migrar sus bytes: todos los campos extendidos están vacíos.
@@ -115,8 +118,8 @@ noexcept de todas las tablas, contadores y RNG. Rechazo/exception conserva ambos
 destinos; éxito invalida referencias previas. No hay concurrencia ni atomicidad
 de filesystem; el Host coordina y almacena los bytes.
 
-Coste de validación adicional O(D + R + P + M log P), más gramática/texto y
-contención O(L log L), con O(P+L) memoria auxiliar. No itera hasta total o
+Coste de validación adicional O(D + R + P + M log(P+1)), más gramática/texto y
+contención O(L log(L+1)), con O(P+L) memoria auxiliar. No itera hasta total o
 last ID. La representación visual no forma parte del contrato.
 
 El fixture dorado independiente de 207 octetos incluye binding, relación,

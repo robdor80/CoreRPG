@@ -133,6 +133,18 @@ TEST(PopulationPersistenceTest, NewFieldsCannotBeDowngradedIntoV1) {
     ASSERT_EQ(Persistence::load(Persistence::serialize(historical).bytes, world, random),
               PersistenceStatus::success);
     EXPECT_EQ(world.revision(), 3U);
+
+    CampaignSnapshot forced_empty;
+    forced_empty.format_version = 2;
+    const auto forced_bytes = Persistence::serialize(forced_empty).bytes;
+    EXPECT_EQ(forced_bytes.size(), 92U);
+    const auto decoded = Persistence::deserialize(forced_bytes);
+    ASSERT_EQ(decoded.status, PersistenceStatus::success);
+    EXPECT_EQ(*decoded.snapshot, forced_empty);
+    EXPECT_EQ(Persistence::serialize(*decoded.snapshot).bytes, forced_bytes);
+    ASSERT_EQ(Persistence::load(forced_bytes, world, random), PersistenceStatus::success);
+    // Format is codec metadata, not a second world field. Recapture is lossless v1.
+    EXPECT_EQ(Persistence::capture(world, random), CampaignSnapshot{});
 }
 
 TEST(PopulationPersistenceTest, ContinuationMatchesUninterruptedIdentityPopulationAndRng) {
