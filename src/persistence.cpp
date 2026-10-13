@@ -8,6 +8,21 @@
 
 namespace corerpg {
 
+WorldState::WorldState(const CampaignSnapshot& snapshot)
+    : last_entity_id_{snapshot.last_entity_id}, revision_{snapshot.revision},
+      containment_(snapshot.containment.size()) {
+    for (std::size_t i = 0; i < snapshot.containment.size(); ++i) {
+        containment_[i] = {snapshot.containment[i].entity, snapshot.containment[i].container};
+    }
+}
+
+RandomStreams::RandomStreams(const CampaignSnapshot& snapshot)
+    : master_seed_{snapshot.master_seed}, streams_{std::less<stream_id_type>{}} {
+    for (const auto& stream : snapshot.streams) {
+        streams_.emplace(stream.id, DeterministicRandom{stream.state});
+    }
+}
+
 CampaignSnapshot Persistence::capture(const WorldState& world, const RandomStreams& random) {
     CampaignSnapshot snapshot;
     snapshot.last_entity_id = world.last_entity_id_;
@@ -95,9 +110,9 @@ SerializedSnapshot Persistence::serialize(const CampaignSnapshot& snapshot,
                                           PersistenceLimits limits) {
     const auto status = validate(snapshot, limits);
     if (status != PersistenceStatus::success) {
-        return {status, {}};
+        return {status};
     }
-    std::vector<std::uint8_t> bytes;
+    std::vector<std::uint8_t> bytes(0);
     bytes.reserve(*detail::save_size(snapshot.containment.size(), snapshot.streams.size(), limits));
     bytes.insert(bytes.end(), detail::save_magic.begin(), detail::save_magic.end());
     detail::append_integer(bytes, snapshot.format_version, 4);
@@ -201,17 +216,8 @@ PersistenceStatus Persistence::restore(const CampaignSnapshot& snapshot, WorldSt
         return status;
     }
 
-    WorldState replacement_world;
-    replacement_world.last_entity_id_ = snapshot.last_entity_id;
-    replacement_world.revision_ = snapshot.revision;
-    replacement_world.containment_.reserve(snapshot.containment.size());
-    for (const auto& link : snapshot.containment) {
-        replacement_world.containment_.emplace_back(link.entity, link.container);
-    }
-    RandomStreams replacement_random{snapshot.master_seed};
-    for (const auto& stream : snapshot.streams) {
-        replacement_random.streams_.emplace(stream.id, DeterministicRandom{stream.state});
-    }
+    WorldState replacement_world{snapshot};
+    RandomStreams replacement_random{snapshot};
 
     // Nothing below can allocate or throw, including MSVC checked-iterator builds.
     static_assert(noexcept(world.containment_.swap(replacement_world.containment_)));

@@ -8,6 +8,8 @@
 
 namespace corerpg {
 
+struct CampaignSnapshot;
+
 /// Explicit owner of independent deterministic RNG streams for one simulation context.
 /// The caller assigns stable numeric stream IDs; neither creation order nor other
 /// streams' draws may affect a stream's initial state or subsequent sequence.
@@ -33,6 +35,8 @@ public:
 
 private:
     friend class Persistence;
+    /// Private validated staging path; propagates sentinel/proxy allocation failures.
+    explicit RandomStreams(const CampaignSnapshot& snapshot);
     seed_type master_seed_;
     std::map<stream_id_type, DeterministicRandom> streams_;
 };

@@ -55,6 +55,25 @@ void operator delete[](void* allocation, std::size_t) noexcept {
     std::free(allocation);
 }
 
+// The runner may use nothrow temporary buffers. Route them through the same
+// replacement so sanitizer allocation/deallocation families remain matched.
+void* operator new(std::size_t size, const std::nothrow_t&) noexcept {
+    try {
+        return ::operator new(size);
+    } catch (const std::bad_alloc&) {
+        return nullptr;
+    }
+}
+void* operator new[](std::size_t size, const std::nothrow_t&) noexcept {
+    return ::operator new(size, std::nothrow);
+}
+void operator delete(void* allocation, const std::nothrow_t&) noexcept {
+    std::free(allocation);
+}
+void operator delete[](void* allocation, const std::nothrow_t&) noexcept {
+    std::free(allocation);
+}
+
 namespace {
 
 using corerpg::EntityId;

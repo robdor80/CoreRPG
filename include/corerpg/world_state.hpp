@@ -9,6 +9,8 @@
 
 namespace corerpg {
 
+struct CampaignSnapshot;
+
 enum class ContainmentStatus : std::uint8_t {
     entity_not_found,
     uncontained,
@@ -87,6 +89,8 @@ public:
 
 private:
     friend class Persistence;
+    /// Private validated staging path; may throw without touching an existing world.
+    explicit WorldState(const CampaignSnapshot& snapshot);
     EntityId::value_type last_entity_id_{0};
     revision_type revision_{0};
     std::vector<std::pair<EntityId, EntityId>> containment_;

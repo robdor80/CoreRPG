@@ -6,6 +6,7 @@
 #include <cstdint>
 #include <optional>
 #include <span>
+#include <utility>
 #include <vector>
 
 namespace corerpg {
@@ -33,8 +34,22 @@ struct CampaignSnapshot final {
     EntityId::value_type last_entity_id{};
     WorldState::revision_type revision{};
     RandomStreams::seed_type master_seed{};
-    std::vector<ContainmentSnapshot> containment;
-    std::vector<RandomStreamSnapshot> streams;
+    // Count constructors can propagate MSVC debug-proxy allocation failures;
+    // default vector construction and vector moves are noexcept on that STL.
+    std::vector<ContainmentSnapshot> containment = std::vector<ContainmentSnapshot>(0);
+    std::vector<RandomStreamSnapshot> streams = std::vector<RandomStreamSnapshot>(0);
+
+    CampaignSnapshot() = default;
+    CampaignSnapshot(const CampaignSnapshot&) = default;
+    CampaignSnapshot& operator=(const CampaignSnapshot&) = default;
+    CampaignSnapshot& operator=(CampaignSnapshot&&) = default;
+    CampaignSnapshot(CampaignSnapshot&& other)
+        : format_version{other.format_version}, rng_policy{other.rng_policy},
+          last_entity_id{other.last_entity_id}, revision{other.revision},
+          master_seed{other.master_seed} {
+        containment.swap(other.containment);
+        streams.swap(other.streams);
+    }
     bool operator==(const CampaignSnapshot&) const = default;
 };
 
@@ -62,7 +77,19 @@ enum class PersistenceStatus : std::uint8_t {
 
 struct SerializedSnapshot final {
     PersistenceStatus status{PersistenceStatus::success};
-    std::vector<std::uint8_t> bytes;
+    std::vector<std::uint8_t> bytes = std::vector<std::uint8_t>(0);
+
+    SerializedSnapshot(PersistenceStatus result = PersistenceStatus::success) : status{result} {}
+    SerializedSnapshot(PersistenceStatus result, std::vector<std::uint8_t>&& data)
+        : status{result} {
+        bytes.swap(data);
+    }
+    SerializedSnapshot(const SerializedSnapshot&) = default;
+    SerializedSnapshot& operator=(const SerializedSnapshot&) = default;
+    SerializedSnapshot& operator=(SerializedSnapshot&&) = default;
+    SerializedSnapshot(SerializedSnapshot&& other) : status{other.status} {
+        bytes.swap(other.bytes);
+    }
 };
 
 struct DecodedSnapshot final {
