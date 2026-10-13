@@ -52,6 +52,7 @@ target_sources(
             include/corerpg/definition_reference.hpp
             include/corerpg/definition_id.hpp
             include/corerpg/entity_id.hpp
+            include/corerpg/entity_structure.hpp
             include/corerpg/pack_dependency.hpp
             include/corerpg/pack_id.hpp
             include/corerpg/persistence.hpp

@@ -20,6 +20,7 @@ add_executable(
     content_pack_validation_test.cpp
     content_manifest_test.cpp
     content_id_test.cpp
+    entity_structure_test.cpp
     persistence_test.cpp
     random_test.cpp
     random_streams_test.cpp
