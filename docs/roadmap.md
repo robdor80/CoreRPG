@@ -8,9 +8,10 @@ Este documento añade **criterios transversales** a la hoja de ruta incremental.
 ## Estado de partida
 
 - Fases **4.1–4.5 cerradas**. La fase 4.5 (Generic World State) se integró en `main` mediante PR #3, merge `d23c400`, con CI de `main` Windows/MSVC y Linux/GCC superada (run `38365231770`). Véase el [acta 4.5](phases/4.5-generic-world-state.md).
-- **4.6 — RNG + Rules:** ABI/API en desarrollo en `feat/rng-rules`; no se considera cerrada. Plan y evidencias incrementales en [docs/phases/4.6-rng-rules.md](phases/4.6-rng-rules.md).
+- **4.6 — RNG + Rules:** fusionada mediante PR #4, merge `8f1cbf72003631706e96ce79100b7dd504268ed0`; CI de `main` Windows/MSVC y Linux/GCC superada ([run 38374915709](https://github.com/robdor80/CoreRPG/actions/runs/38374915709)). Documento histórico en [4.6](phases/4.6-rng-rules.md).
+- **4.7 — Persistence:** implementada en `feat/persistence`, pendiente de auditoría, integración y CI final de `main`. Snapshots exactos del estado actual, codec binario v1 y restauración atómica; evidencias en [4.7](phases/4.7-persistence.md).
 - El estado de una rama no acredita que la fase ya esté fusionada en `main`.
-- Aún no están implementados: registro rico de personajes, horario/estado vivo completo, simulación fuera de escena, persistencia de partidas, autoridad contextual/órdenes ejecutables, módulos de Host, Companion y sus HUD. Los contratos de los juegos no equivalen a una implementación C++ del Core.
+- Aún no están implementados: registro rico de personajes, horario/estado vivo completo, simulación fuera de escena, almacenamiento físico del Host y migraciones de guardados, autoridad contextual/órdenes ejecutables, módulos de Host, Companion y sus HUD. Los contratos de los juegos no equivalen a una implementación C++ del Core.
 
 ## Plataformas y presentaciones fijadas
 
@@ -28,8 +29,8 @@ Este documento añade **criterios transversales** a la hoja de ruta incremental.
 | Fase | Alcance y nueva precaución |
 | --- | --- |
 | **4.5 Generic World State** | **CERRADA**, con identidad, revisión, enumeración, contención y tests integrados. Sin Android, UE5, Companion, serialización o modelos de dominio. |
-| **4.6 RNG + Rules** | **EN CURSO:** ownership de streams RNG y reglas estructurales puras; conservar secuencia SplitMix64, sin dependencia gráfica ni semántica de sensores, magia, autoridad institucional o ActionEngine 4.10. |
-| **4.7 Persistence** | Restauración exacta de identidades, asignador, revisión, vínculos y estados RNG/streams que deban persistir; contrato portable/versionado sin rerollear. No introducir campos especulativos. |
+| **4.6 RNG + Rules** | **FUSIONADA:** ownership de streams RNG y reglas estructurales puras; conserva SplitMix64, sin dependencia gráfica, canon ni ActionEngine 4.10. |
+| **4.7 Persistence** | **IMPLEMENTADA EN RAMA, PENDIENTE DE REVISIÓN:** identidades, asignador, revisión, vínculos, master seed y streams exactos. Codec v1 portable y versionado, sin rerollear ni campos especulativos. |
 | **4.8 Entidades/población/familias** | **Reevaluar alcance multiuniverso antes de implementar**: población latente, materialización, actividades y relaciones no deben introducir humanidad o familias como requisito universal. |
 | **4.9 Knowledge & Visibility** | Proyecciones por observador. Host, Companion y NPC no deben recibir información oculta no autorizada. |
 | **4.10 Actions + Simulation** | Solicitudes estructuradas y resultados validados por autoridad técnica única; simulación off-screen causal. **Después del mínimo funcional**, reevaluar la propuesta de iniciativa, autoridad contextual, compromisos y delegación; no crear segundo ActionEngine. |
@@ -48,7 +49,7 @@ No significa que todos los conceptos de las fases posteriores pertenezcan al Cor
 - PR #3 fusionada en `main`, commit `d23c400`; tres incrementos integrados.
 - CI de `main`: Windows/MSVC y Linux/GCC correctas, run `38365231770`.
 - Acta histórica: [4.5 Generic World State](phases/4.5-generic-world-state.md). No confundir persistencia lógica en memoria con guardado en disco.
-- Fase siguiente: **4.6 RNG + Rules**, rama `feat/rng-rules`, progreso controlado por incrementos y CI.
+- 4.6 se fusionó después mediante PR #4. Fase actual: **4.7 Persistence**, rama `feat/persistence`, pendiente de revisión e integración.
 
 ### P1 — Prueba Android NDK temprana (imprescindible)
 
@@ -132,4 +133,4 @@ No significa que todos los conceptos de las fases posteriores pertenezcan al Cor
 7. CI Windows/Linux no sustituye las pruebas Android NDK y UE5.
 8. No se reabre 4.5 para introducir redes, UI ni sistemas posteriores.
 
-**Siguiente paso del Core:** validar y cerrar 4.6 por incrementos en su rama/PR. Ejecutar tempranamente P1 Android NDK como verificación de portabilidad independiente.
+**Siguiente paso del Core:** auditar 4.7 en su PR Draft y, tras aprobación, integrar y verificar CI de `main` antes de declarar el cierre. P1 Android NDK sigue siendo una verificación de portabilidad independiente.

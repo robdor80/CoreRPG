@@ -254,8 +254,8 @@ modifica estado persistente, por lo que tampoco cambia la revisión del mundo.
 
 `DeterministicRandom` proporciona estado explícito, secuencia determinista,
 `uniform_closed()`, restauración mediante `state()` y vectores dorados de test.
-Esta es infraestructura mínima, no la fase funcional de RNG y reglas: ownership,
-streams, política de semillas y consumo entre reglas permanecen para 4.6.
+Esta infraestructura conserva su contrato; 4.6 añadió ownership, streams y
+política de semillas explícita.
 
 `RollAction` es una vertical mínima de foundation. Demuestra input estructurado,
 validación contra `WorldState`, consumo determinista de RNG, resultado explícito
@@ -264,7 +264,7 @@ existen todavía una clase base `Action`, un sistema de comandos, dispatcher,
 registry, efectos generales ni framework de simulación. Ese modelo corresponde
 principalmente a 4.10.
 
-### 4.6 — RNG streams y reglas estructurales (en desarrollo)
+### 4.6 — RNG streams y reglas estructurales (fusionada)
 
 El generador SplitMix64 y sus vectores dorados de la foundation **no cambian**.
 `RandomStreams` es un propietario explícito, por contexto de simulación, de
@@ -282,7 +282,7 @@ El pool no es global, no está almacenado en `WorldState`, y las operaciones
 que usan RNG deben seguir recibiendo el stream explícitamente. Consultar
 streams inexistentes no los crea. Insertar otros no altera el estado de una
 secuencia existente. Copiar el pool produce estados independientes. La
-persistencia exacta de cada stream y su restauración se definirán en 4.7.
+persistencia exacta de cada stream y su restauración se implementan en 4.7.
 
 `RuleCheck` y `evaluate_rule_checks` son el primer contrato de
 **comprobaciones puras, no autorizaciones** sobre hechos reales ya observables:
@@ -353,7 +353,8 @@ almacenamiento interno y no materializa una lista completa.
 
 Las consultas sucesivas no constituyen un snapshot: una creación intercalada
 puede aparecer en la siguiente consulta, incluso después de haber observado un
-fin de recorrido. No hay concurrencia, locks ni snapshots. La implementación
+fin de recorrido. No hay concurrencia ni locks; los snapshots poseídos de 4.7
+se capturan en una llamada sin mutaciones concurrentes. La implementación
 aprovecha el intervalo implícito actual, pero ese intervalo no forma parte del
 contrato público de enumeración. Un cursor con el máximo valor de `uint64_t`
 devuelve ausencia sin desbordar.
@@ -483,9 +484,9 @@ Rules y Actions; todavía no existe un dispatcher seguro general. No se expone
 almacenamiento mutable ni un setter universal.
 
 La contención no depende de RNG ni de `ContentCatalog`. Las fases 4.6 y 4.7
-podrán consumir estas primitivas y observar los vínculos en orden canónico.
-La futura persistencia deberá restaurar vínculos y revisión exactamente, pero
-este incremento no implementa formato de guardado, restore, puente
+consumen estas primitivas y observan los vínculos en orden canónico.
+La persistencia de 4.7 restaura vínculos y revisión exactamente. El incremento
+histórico de 4.5 no implementó formato de guardado, restore, puente
 `DefinitionId`/`EntityId`, spawning, materialización, reglas de movimiento,
 acciones generales ni simulación.
 
@@ -515,9 +516,9 @@ Las fronteras futuras son:
 - **4.6 — RNG + Rules:** consultar contención no consume RNG ni ejecuta reglas.
   Las reglas específicas permanecen fuera de estas primitivas estructurales.
 - **4.7 — Persistence:** deberá preservar identidades, estado del asignador,
-  revisión y vínculos. La carga deberá reconstruir el estado completo sin
-  repetir mutaciones ni incrementar la revisión por cada vínculo restaurado.
-  La API de restauración y el formato todavía no existen.
+  revisión y vínculos. La carga reconstruye el estado completo sin repetir
+  mutaciones ni incrementar la revisión por cada vínculo restaurado; las APIs
+  y el formato se describen en la sección de persistencia siguiente.
 - **4.8:** su alcance requiere revisión multiuniverso; no se anticipan familias,
   personajes ni población.
 - **4.9 — Knowledge & Visibility:** los vínculos son realidad autoritativa,
@@ -527,10 +528,45 @@ Las fronteras futuras son:
   si una operación posterior falla, las anteriores conservan sus cambios.
   Coordinación, permisos, costes y autorización de gameplay siguen pendientes.
 - **4.11 — Inspector:** las consultas permiten observar sin mutar, con los
-  límites de ausencia de snapshots y concurrencia ya documentados.
+  límites de las consultas sucesivas y ausencia de concurrencia ya documentados.
 - **4.12 — Context Builder + AI:** una IA podrá proponer intenciones mediante
   la futura frontera de acciones; las consultas no le otorgan autoridad para
   modificar la realidad.
+
+## 4.7 — Persistencia lógica y almacenamiento del Host
+
+`Persistence` es la única frontera amiga de `WorldState` y `RandomStreams`
+para capturar y restaurar su estado completo; no introduce setters de campos
+ni acceso mutable al almacenamiento. `CampaignSnapshot` es un candidato
+temporal poseído por valor, no otro mundo autoritativo. Restaurarlo revalida
+todos sus datos, prepara ambos destinos y publica con swaps sin excepciones.
+No usa operaciones ordinarias de creación/contención ni reproduce tiradas.
+Un rechazo o excepción conserva ambos destinos, incluida la master seed,
+streams existentes y referencias previas. Una carga válida reemplaza ambos y
+anula referencias previas a streams.
+
+El snapshot v1 comprende el intervalo exacto de IDs emitidos y su asignador,
+revisión técnica, vínculos directos y pool RNG. Conserva los streams ausentes
+como ausentes. No inventa campos de gameplay ni incorpora ContentCatalog,
+datos declarativos, personajes, tiempos, eventos, provenance o estado del Host.
+No hay puente de instanciación que guardar todavía.
+
+El codec v1 produce bytes canónicos con uint32/uint64 little-endian, orden
+estrictamente ascendente y CRC32C. Ver [especificación normativa](persistence-format-v1.md)
+y [auditoría, APIs y verificaciones](phases/4.7-persistence.md). Versiones y
+políticas desconocidas se rechazan; no hay migraciones implícitas. La validación
+es iterativa, O(L log L + S), con O(L) memoria auxiliar para L vínculos y S
+streams, sin recorrer el intervalo entero de entidades. No se serializa layout
+nativo, memoria, direcciones ni tipos de presentación. No se añaden dependencias.
+
+El Core opera sobre bytes en memoria. Abrir archivos en modo binario, comprobar
+errores de lectura/escritura, límites de entrada antes de leer, escritura
+temporal, reemplazo duradero, backups y autenticación pertenecen al Host. CRC32C
+detecta corrupción accidental y no autentica datos manipulados. El Host
+coordina un punto sin mutaciones concurrentes: la atomicidad de carga no
+constituye sincronización entre hilos ni una transacción de filesystem.
+
+La Fase 4.7 permanece pendiente de revisión, integración y CI final de `main`.
 
 ## Versiones independientes
 
@@ -804,7 +840,7 @@ Quedan expresamente pospuestos:
 
 - sistemas completos de gameplay;
 - payloads y schemas específicos de dominio para Content Packs;
-- persistencia y migraciones;
+- migraciones de guardados y almacenamiento físico específico del Host;
 - ABI dinámica estable;
 - scripting y plugins ejecutables;
 - red, replicación y multithreading interno;
@@ -858,6 +894,9 @@ funcionales posteriores:
   capacidades estén fuera de 4.4 no implica que se implementen en 4.5.
 - **4.6 — RNG + rules:** define ownership, streams, política de semillas y
   reglas funcionales sobre la infraestructura determinista existente.
+- **4.7 — Persistence:** snapshots completos, codec binario versionado y
+  restauración atómica de WorldState y RandomStreams; almacenamiento físico
+  del Host y sistemas de gameplay futuros quedan fuera.
 - **4.10 — actions + simulation:** introduce el modelo general de acciones y
   simulación del que `RollAction` es sólo una vertical inicial.
 

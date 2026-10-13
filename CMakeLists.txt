@@ -33,6 +33,7 @@ target_sources(
         src/version_requirement.cpp
         src/random.cpp
         src/random_streams.cpp
+        src/persistence.cpp
         src/rule_check.cpp
         src/resource_kind.cpp
         src/roll_action.cpp
@@ -53,6 +54,7 @@ target_sources(
             include/corerpg/entity_id.hpp
             include/corerpg/pack_dependency.hpp
             include/corerpg/pack_id.hpp
+            include/corerpg/persistence.hpp
             include/corerpg/random.hpp
             include/corerpg/random_streams.hpp
             include/corerpg/rule_check.hpp

@@ -1,0 +1,242 @@
+#include <corerpg/persistence.hpp>
+
+#include "persistence_internal.hpp"
+
+#include <algorithm>
+#include <type_traits>
+#include <utility>
+
+namespace corerpg {
+
+WorldState::WorldState(const CampaignSnapshot& snapshot)
+    : last_entity_id_{snapshot.last_entity_id}, revision_{snapshot.revision},
+      containment_(snapshot.containment.size()) {
+    for (std::size_t i = 0; i < snapshot.containment.size(); ++i) {
+        containment_[i] = {snapshot.containment[i].entity, snapshot.containment[i].container};
+    }
+}
+
+RandomStreams::RandomStreams(const CampaignSnapshot& snapshot)
+    : master_seed_{snapshot.master_seed}, streams_{std::less<stream_id_type>{}} {
+    for (const auto& stream : snapshot.streams) {
+        streams_.emplace(stream.id, DeterministicRandom{stream.state});
+    }
+}
+
+CampaignSnapshot Persistence::capture(const WorldState& world, const RandomStreams& random) {
+    CampaignSnapshot snapshot;
+    snapshot.last_entity_id = world.last_entity_id_;
+    snapshot.revision = world.revision_;
+    snapshot.master_seed = random.master_seed_;
+    snapshot.containment.reserve(world.containment_.size());
+    for (const auto& [entity, container] : world.containment_) {
+        snapshot.containment.push_back({entity, container});
+    }
+    snapshot.streams.reserve(random.streams_.size());
+    for (const auto& [id, stream] : random.streams_) {
+        snapshot.streams.push_back({id, stream.state()});
+    }
+    return snapshot;
+}
+
+PersistenceStatus Persistence::validate(const CampaignSnapshot& snapshot,
+                                        PersistenceLimits limits) {
+    if (snapshot.format_version != save_format_version) {
+        return PersistenceStatus::unsupported_version;
+    }
+    if (snapshot.rng_policy != save_rng_policy) {
+        return PersistenceStatus::unsupported_rng_policy;
+    }
+    if (!detail::save_size(snapshot.containment.size(), snapshot.streams.size(), limits)) {
+        return PersistenceStatus::limit_exceeded;
+    }
+    const auto last = snapshot.last_entity_id;
+    if (snapshot.revision < last || (last <= 1 && snapshot.revision != last) ||
+        snapshot.containment.size() > snapshot.revision - last) {
+        return PersistenceStatus::invalid_world;
+    }
+    EntityId previous;
+    for (const auto& link : snapshot.containment) {
+        if (!link.entity.is_valid() || !link.container.is_valid() || link.entity.value() > last ||
+            link.container.value() > last || link.entity == link.container) {
+            return PersistenceStatus::invalid_link;
+        }
+        if (link.entity <= previous) {
+            return PersistenceStatus::noncanonical_links;
+        }
+        previous = link.entity;
+    }
+    for (std::size_t i = 1; i < snapshot.streams.size(); ++i) {
+        if (snapshot.streams[i - 1].id >= snapshot.streams[i].id) {
+            return PersistenceStatus::noncanonical_streams;
+        }
+    }
+
+    // Iterative coloring: every link is visited and finalized once. Only sparse
+    // records consume memory, never the implicit entity interval or a call stack.
+    const auto& links = snapshot.containment;
+    const auto parent_index = [&](std::size_t index) {
+        const auto parent = links[index].container;
+        const auto it =
+            std::lower_bound(links.begin(), links.end(), parent,
+                             [](const auto& link, EntityId id) { return link.entity < id; });
+        return it == links.end() || it->entity != parent
+                   ? links.size()
+                   : static_cast<std::size_t>(it - links.begin());
+    };
+    std::vector<std::uint8_t> colors(links.size(), 0);
+    for (std::size_t start = 0; start < links.size(); ++start) {
+        if (colors[start] == 2) {
+            continue;
+        }
+        auto index = start;
+        while (index < links.size() && colors[index] == 0) {
+            colors[index] = 1;
+            index = parent_index(index);
+        }
+        if (index < links.size() && colors[index] == 1) {
+            return PersistenceStatus::cycle_detected;
+        }
+        index = start;
+        while (index < links.size() && colors[index] == 1) {
+            colors[index] = 2;
+            index = parent_index(index);
+        }
+    }
+    return PersistenceStatus::success;
+}
+
+SerializedSnapshot Persistence::serialize(const CampaignSnapshot& snapshot,
+                                          PersistenceLimits limits) {
+    const auto status = validate(snapshot, limits);
+    if (status != PersistenceStatus::success) {
+        return {status};
+    }
+    std::vector<std::uint8_t> bytes(0);
+    bytes.reserve(*detail::save_size(snapshot.containment.size(), snapshot.streams.size(), limits));
+    bytes.insert(bytes.end(), detail::save_magic.begin(), detail::save_magic.end());
+    detail::append_integer(bytes, snapshot.format_version, 4);
+    detail::append_integer(bytes, snapshot.rng_policy, 4);
+    detail::append_integer(bytes, snapshot.last_entity_id, 8);
+    detail::append_integer(bytes, snapshot.revision, 8);
+    detail::append_integer(bytes, snapshot.master_seed, 8);
+    detail::append_integer(bytes, snapshot.containment.size(), 8);
+    detail::append_integer(bytes, snapshot.streams.size(), 8);
+    for (const auto& link : snapshot.containment) {
+        detail::append_integer(bytes, link.entity.value(), 8);
+        detail::append_integer(bytes, link.container.value(), 8);
+    }
+    for (const auto& stream : snapshot.streams) {
+        detail::append_integer(bytes, stream.id, 8);
+        detail::append_integer(bytes, stream.state, 8);
+    }
+    const auto checksum = detail::save_checksum(bytes);
+    detail::append_integer(bytes, checksum, 4);
+    return {PersistenceStatus::success, std::move(bytes)};
+}
+
+DecodedSnapshot Persistence::deserialize(std::span<const std::uint8_t> bytes,
+                                         PersistenceLimits limits) {
+    if (bytes.size() > limits.max_bytes) {
+        return {PersistenceStatus::limit_exceeded, std::nullopt};
+    }
+    if (bytes.size() < detail::save_minimum_size) {
+        return {PersistenceStatus::invalid_size, std::nullopt};
+    }
+    if (!std::equal(detail::save_magic.begin(), detail::save_magic.end(), bytes.begin())) {
+        return {PersistenceStatus::invalid_magic, std::nullopt};
+    }
+    // Reads are bounded by the header check and then by the exact record counts.
+    std::size_t position = detail::save_magic.size();
+    const auto read = [&](unsigned width) {
+        std::uint64_t value = 0;
+        for (unsigned i = 0; i < width; ++i) {
+            value |= static_cast<std::uint64_t>(bytes[position++]) << (8U * i);
+        }
+        return value;
+    };
+    const auto version = static_cast<std::uint32_t>(read(4));
+    if (version != save_format_version) {
+        return {PersistenceStatus::unsupported_version, std::nullopt};
+    }
+    const auto rng_policy = static_cast<std::uint32_t>(read(4));
+    if (rng_policy != save_rng_policy) {
+        return {PersistenceStatus::unsupported_rng_policy, std::nullopt};
+    }
+    const auto last = read(8);
+    const auto revision = read(8);
+    const auto master_seed = read(8);
+    const auto link_count = read(8);
+    const auto stream_count = read(8);
+    const auto expected_size = detail::save_size(link_count, stream_count, limits);
+    if (!expected_size) {
+        return {PersistenceStatus::limit_exceeded, std::nullopt};
+    }
+    if (*expected_size != bytes.size()) {
+        return {PersistenceStatus::invalid_size, std::nullopt};
+    }
+    position = bytes.size() - 4U;
+    const auto checksum = static_cast<std::uint32_t>(read(4));
+    if (checksum != detail::save_checksum(bytes.first(bytes.size() - 4U))) {
+        return {PersistenceStatus::checksum_mismatch, std::nullopt};
+    }
+
+    CampaignSnapshot snapshot;
+    snapshot.last_entity_id = last;
+    snapshot.revision = revision;
+    snapshot.master_seed = master_seed;
+    if (link_count > snapshot.containment.max_size() ||
+        stream_count > snapshot.streams.max_size()) {
+        return {PersistenceStatus::limit_exceeded, std::nullopt};
+    }
+    snapshot.containment.reserve(static_cast<std::size_t>(link_count));
+    snapshot.streams.reserve(static_cast<std::size_t>(stream_count));
+    position = detail::save_header_size;
+    for (std::uint64_t i = 0; i < link_count; ++i) {
+        const auto entity = read(8);
+        const auto container = read(8);
+        snapshot.containment.push_back({EntityId{entity}, EntityId{container}});
+    }
+    for (std::uint64_t i = 0; i < stream_count; ++i) {
+        const auto id = read(8);
+        const auto state = read(8);
+        snapshot.streams.push_back({id, state});
+    }
+    const auto status = validate(snapshot, limits);
+    if (status != PersistenceStatus::success) {
+        return {status, std::nullopt};
+    }
+    return {PersistenceStatus::success, std::move(snapshot)};
+}
+
+PersistenceStatus Persistence::restore(const CampaignSnapshot& snapshot, WorldState& world,
+                                       RandomStreams& random, PersistenceLimits limits) {
+    const auto status = validate(snapshot, limits);
+    if (status != PersistenceStatus::success) {
+        return status;
+    }
+
+    WorldState replacement_world{snapshot};
+    RandomStreams replacement_random{snapshot};
+
+    // Nothing below can allocate or throw, including MSVC checked-iterator builds.
+    static_assert(noexcept(world.containment_.swap(replacement_world.containment_)));
+    static_assert(noexcept(random.streams_.swap(replacement_random.streams_)));
+    static_assert(std::is_nothrow_swappable_v<std::uint64_t>);
+    std::swap(world.last_entity_id_, replacement_world.last_entity_id_);
+    std::swap(world.revision_, replacement_world.revision_);
+    world.containment_.swap(replacement_world.containment_);
+    std::swap(random.master_seed_, replacement_random.master_seed_);
+    random.streams_.swap(replacement_random.streams_);
+    return PersistenceStatus::success;
+}
+
+PersistenceStatus Persistence::load(std::span<const std::uint8_t> bytes, WorldState& world,
+                                    RandomStreams& random, PersistenceLimits limits) {
+    const auto decoded = deserialize(bytes, limits);
+    return decoded.status == PersistenceStatus::success
+               ? restore(*decoded.snapshot, world, random, limits)
+               : decoded.status;
+}
+
+} // namespace corerpg
