@@ -23,6 +23,7 @@ add_executable(
     random_test.cpp
     roll_action_test.cpp
     smoke_test.cpp
+    world_state_integration_test.cpp
     world_state_test.cpp
 )
 
@@ -49,6 +50,23 @@ endif()
 
 include(GoogleTest)
 gtest_discover_tests(corerpg_tests)
+
+# Keep allocation failure instrumentation isolated from all other test executables.
+add_executable(corerpg_world_state_allocation_tests world_state_allocation_test.cpp)
+target_link_libraries(
+    corerpg_world_state_allocation_tests
+    PRIVATE CoreRPG::CoreRPG GTest::gtest_main
+)
+set_target_properties(
+    corerpg_world_state_allocation_tests
+    PROPERTIES CXX_STANDARD 20 CXX_STANDARD_REQUIRED YES CXX_EXTENSIONS NO
+)
+if(MSVC)
+    target_compile_options(corerpg_world_state_allocation_tests PRIVATE /W4 /permissive-)
+elseif(CMAKE_CXX_COMPILER_ID MATCHES "Clang|GNU")
+    target_compile_options(corerpg_world_state_allocation_tests PRIVATE -Wall -Wextra -Wpedantic)
+endif()
+gtest_discover_tests(corerpg_world_state_allocation_tests)
 
 if(CORERPG_BUILD_CONTENT_JSON)
     add_executable(

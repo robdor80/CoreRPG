@@ -306,14 +306,32 @@ qué contrato necesita.
 
 El `WorldState` actual no es todavía el Generic World State completo. Mantiene
 la generación monotónica de `EntityId`, reconoce como existentes los IDs ya
-emitidos y expone `entity_count()` y `revision()`. No contiene registros de
-entidad, componentes, propiedades, relaciones, localizaciones, inventarios,
+emitidos y expone `entity_count()` y `revision()`. El Incremento 2 de 4.5 añade
+su primera capacidad persistente mutable: contención directa, discreta y
+opcional entre entidades runtime. No contiene registros universales de
+entidad, componentes, propiedades, localizaciones métricas, inventarios,
 lifecycle, eliminación ni provenance de definiciones.
+
+El Incremento 1 de 4.5 refuerza estos fundamentos y añade
+`next_entity_id(EntityId after)`. Devuelve por valor el menor ID existente
+estrictamente superior al cursor, o `std::nullopt` si no hay otro. El cursor
+`EntityId{0}` inicia el recorrido y no necesita pertenecer al mundo. El orden
+es ascendente por `EntityId`, sin depender de memoria, hashes, RNG ni contenido.
+La consulta no crea entidades ni modifica el contador o la revisión, no expone
+almacenamiento interno y no materializa una lista completa.
+
+Las consultas sucesivas no constituyen un snapshot: una creación intercalada
+puede aparecer en la siguiente consulta, incluso después de haber observado un
+fin de recorrido. No hay concurrencia, locks ni snapshots. La implementación
+aprovecha el intervalo implícito actual, pero ese intervalo no forma parte del
+contrato público de enumeración. Un cursor con el máximo valor de `uint64_t`
+devuelve ausencia sin desbordar.
 
 `WorldState::revision()` es una versión técnica observable del estado
 persistente. Un mundo nuevo comienza en `0`; cada `create_entity()` aceptado la
-incrementa exactamente una vez. Una creación fallida, una consulta y la
-`RollAction` actual no la modifican. No representa tiempo del mundo, tick,
+incrementa exactamente una vez. Cada cambio de contención también la incrementa
+una vez. Un rechazo, una no-op, una consulta y la `RollAction` actual no la
+modifican. No representa tiempo del mundo, tick,
 turno, fecha ni calendario.
 
 Las futuras extensiones conservarán el contrato de mutación: una operación
@@ -321,10 +339,166 @@ persistente aceptada incrementa la revisión exactamente una vez y una operació
 rechazada preserva `WorldState`. Esto fija la frontera de autoridad sin afirmar
 que ya exista el futuro sistema general de acciones.
 
+La creación comprueba por separado el agotamiento de IDs y de revisión antes
+de modificar ninguno de los dos contadores. El máximo de `uint64_t` es un ID
+válido emitible si todavía hay revisión disponible; la siguiente creación se
+rechaza con `EntityId{0}` y conserva ambos contadores. Si la revisión ya es
+máxima, se rechaza igualmente aunque queden IDs. No hay wraparound ni cambios
+publicados sin revisión. `create_entity()` conserva `noexcept` y no asigna
+memoria dinámica.
+
+Desde el Incremento 2, la revisión puede avanzar sin emitir identidad y dejar
+de coincidir con el último ID. El agotamiento de revisión se comprueba en toda
+mutación persistente. Los tests ejercitan sus límites sobre las mismas
+transiciones internas que usa producción, sin setters ni APIs de restauración
+públicos; no construyen un `WorldState` público agotado.
+
+La Fase 4.5 permanece abierta. El Incremento 2 incorpora contención; la
+integración, auditoría final y cierre pertenecen al Incremento 3.
+
 Actualmente `entity_count()` coincide con el último ID emitido porque sólo
 existe creación y no existe eliminación. Es una consecuencia del modelo mínimo,
 no una invariante permanente; ambas magnitudes podrán separarse cuando una fase
 posterior introduzca lifecycle.
+
+### Contención persistente opcional
+
+La relación significa únicamente «esta entidad tiene este contenedor directo
+registrado». Sólo vincula `EntityId` existentes en el mismo mundo. Cada entidad
+puede tener cero o un contenedor directo; un contenedor puede tener varios
+contenidos y también estar contenido. No se permiten autorreferencias ni ciclos.
+Crear una entidad no crea ningún vínculo. Cambiar o retirar un vínculo conserva
+todas las identidades y el conteo de entidades.
+
+La participación es opcional. Ausencia de vínculo no significa inexistencia,
+ubicación física desconocida ni ausencia del universo. Esta capacidad no
+representa propiedad, posesión, custodia, residencia, parentesco, mando,
+permisos, capacidad física, conocimiento, percepción ni un sistema espacial
+completo. No usa `LocationId` ni `DefinitionId` y no conoce tipos de universo.
+
+`container_of(entity)` devuelve un `ContainmentResult` por valor:
+
+- `entity_not_found`: la entidad no existe en este mundo;
+- `uncontained`: existe sin vínculo directo registrado;
+- `contained`: existe y el campo `container` contiene su contenedor directo.
+
+El campo `container` es inválido en los dos primeros casos. La consulta no
+asigna memoria, no modifica estado ni consume RNG.
+
+`place_entity(entity, container)` asocia o reasocia una entidad. Su resultado
+`ContainmentChange` distingue `applied`, `no_change`, `entity_not_found`,
+`container_not_found`, `self_containment`, `cycle_detected` y
+`revision_exhausted`. La precedencia estable es: existencia de la entidad,
+existencia del contenedor, autorreferencia, ciclo, no-op, revisión disponible,
+preparación de memoria y publicación. Para detectar ciclos se sigue
+iterativamente la cadena de ancestros del contenedor propuesto; si alcanza la
+entidad, se rechaza. No hay recursión. Una petición del mismo contenedor es
+`no_change`, incluso con revisión agotada. Entradas inválidas siguen devolviendo
+su error antes de comprobar revisión.
+
+`remove_containment(entity)` retira únicamente el vínculo directo de esa
+entidad. Devuelve `applied` si lo había, `no_change` si la entidad existe sin
+vínculo, `entity_not_found` si no existe y `revision_exhausted` si habría cambio
+pero la revisión está agotada. Conserva los vínculos de sus contenidos y todas
+las otras relaciones. No destruye ni borra entidades, no crea un destino
+implícito y no significa muerte, desaparición, teleportación ni salida física
+del universo. Esta operación no asigna memoria y es `noexcept`.
+
+La única fuente de verdad es un `vector` privado de pares entidad-contenedor,
+ordenado por entidad. No hay índice redundante de hijos ni registros vacíos
+para entidades sin vínculo. La búsqueda usa orden numérico, no hashes o
+direcciones. Una consulta directa cuesta O(log L); recorrer ancestros cuesta
+O(H log L), y insertar o retirar cuesta O(L), para L vínculos y H ancestros.
+No se promete esta representación como contrato permanente.
+
+Todas las validaciones preceden a los cambios. La inserción de un nuevo par
+utiliza la garantía fuerte de `vector` con elementos de movimiento y asignación
+sin excepciones. Si la reserva falla, `std::bad_alloc` se propaga sin cambiar
+IDs, vínculos ni revisión. La reasociación sustituye un ID sin asignar memoria;
+la retirada desplaza elementos sin excepciones. Sólo después de publicar el
+cambio se incrementa la revisión, cuya disponibilidad ya se ha comprobado.
+No se necesita rollback ni un sistema de transacciones. `place_entity()` no
+es `noexcept` ni convierte fallos de memoria en resultados semánticos.
+
+`WorldState` conserva semántica de valor. Copiar conserva contadores y vínculos,
+y las mutaciones de la copia son independientes. La asignación por copia
+construye primero un valor completo y lo reemplaza mediante swaps sin
+excepciones: un fallo de memoria conserva también el mundo destino completo.
+Copiar o reemplazar un mundo no es una acción de gameplay y no incrementa por
+sí mismo la revisión. Las consultas `constexpr` del Incremento 1 se mantienen
+en C++20; los tests comprueban su evaluación en un mundo vacío creado y
+destruido dentro de la expresión constante. En MSVC Debug, los proxies de
+iteradores de `vector` pueden asignar memoria incluso en un mundo vacío;
+no se promete que un objeto `constexpr WorldState` persistente pueda retener
+esas asignaciones después de la evaluación constante.
+
+El conjunto de vínculos se observa canónicamente recorriendo
+`next_entity_id()` desde cero y consultando `container_of()` para cada entidad,
+conservando los resultados `contained`. No se añade una segunda API de
+enumeración. Las consultas sucesivas no son snapshots ante mutaciones
+intercaladas y no hay soporte de concurrencia.
+
+Los tests cubren las transiciones de revisión máxima y los errores mediante
+las mismas funciones internas usadas por los métodos públicos. Un ejecutable
+de tests aislado provoca fallos acotados de asignación ordinaria en asociación,
+inserción con vínculos existentes y copia; también comprueba que reasociar y
+retirar no asignan memoria. No hay allocators o hooks de testing en producción.
+Esto no simula todos los fallos de memoria o plataformas posibles.
+
+Estas operaciones son primitivas estructurales bajo autoridad de `WorldState`.
+No autorizan por sí solas cambios de gameplay desde Hosts o IA. La autorización
+contextual, permisos, capacidades, costes y reglas se resolverán en futuras
+Rules y Actions; todavía no existe un dispatcher seguro general. No se expone
+almacenamiento mutable ni un setter universal.
+
+La contención no depende de RNG ni de `ContentCatalog`. Las fases 4.6 y 4.7
+podrán consumir estas primitivas y observar los vínculos en orden canónico.
+La futura persistencia deberá restaurar vínculos y revisión exactamente, pero
+este incremento no implementa formato de guardado, restore, puente
+`DefinitionId`/`EntityId`, spawning, materialización, reglas de movimiento,
+acciones generales ni simulación.
+
+### Integración y fronteras posteriores
+
+El Incremento 3 verifica los fundamentos y la contención como conjunto, sin
+añadir capacidades. Sus pruebas combinan creación, cadena anidada, reasociación,
+rechazo de ciclos sobre la topología vigente, retirada con descendientes,
+no-op, copia y asignación de varios niveles, y emisión independiente de IDs
+posteriores. El estado lógico se observa exclusivamente mediante la API
+pública. Una prueba adicional comprueba que `RollAction` produce la misma
+secuencia y estado RNG con o sin contención, sin alterar los hechos del mundo.
+Estas pruebas no implementan serialización ni un sistema de snapshots.
+
+El alcance ejecutable de 4.5 es identidad runtime y vínculos persistentes de
+contención. «Persistente» aquí significa que el hecho pertenece al estado vivo
+y permanece hasta una mutación; no significa que exista guardado en disco.
+No hay un modelo general de componentes o datos de dominio, instanciación
+desde Content Packs, spawning, templates, archetypes ni provenance de instancia.
+La contención opcional no es un sistema completo de espacio o movimiento.
+La fase sigue pendiente de integración en `main`, CI verde y acta histórica;
+esta documentación técnica no declara su cierre oficial.
+
+Las fronteras futuras son:
+
+- **4.6 — RNG + Rules:** consultar contención no consume RNG ni ejecuta reglas.
+  Las reglas específicas permanecen fuera de estas primitivas estructurales.
+- **4.7 — Persistence:** deberá preservar identidades, estado del asignador,
+  revisión y vínculos. La carga deberá reconstruir el estado completo sin
+  repetir mutaciones ni incrementar la revisión por cada vínculo restaurado.
+  La API de restauración y el formato todavía no existen.
+- **4.8:** su alcance requiere revisión multiuniverso; no se anticipan familias,
+  personajes ni población.
+- **4.9 — Knowledge & Visibility:** los vínculos son realidad autoritativa,
+  no conocimiento o percepción de un observador.
+- **4.10 — Actions + Simulation:** la atomicidad actual es local a cada
+  primitiva. Una secuencia de llamadas no constituye una transacción general;
+  si una operación posterior falla, las anteriores conservan sus cambios.
+  Coordinación, permisos, costes y autorización de gameplay siguen pendientes.
+- **4.11 — Inspector:** las consultas permiten observar sin mutar, con los
+  límites de ausencia de snapshots y concurrencia ya documentados.
+- **4.12 — Context Builder + AI:** una IA podrá proponer intenciones mediante
+  la futura frontera de acciones; las consultas no le otorgan autoridad para
+  modificar la realidad.
 
 ## Versiones independientes
 
@@ -644,18 +818,23 @@ funcionales posteriores:
   identidad viva, estado, revisión, determinismo y fronteras de mutación.
 - **4.4 — content pack system:** reconcilia y cierra el alcance del sistema ya
   construido sin repetir 4.2 ni inventar payloads o modelos de dominio.
-- **4.5 — Generic World State:** comienza cuando `WorldState` adquiere registros
-  vivos y desarrolla un estado genérico real más allá del contador mínimo
-  actual. Bootstrap, spawning, templates, archetypes, provenance viva y el
-  puente general `DefinitionId` -> `EntityId` no pertenecen a 4.4.
+- **4.5 — Generic World State:** incorpora identidad runtime, enumeración
+  determinista y contención persistente opcional, con mutación controlada,
+  revisión, atomicidad local y copia independiente. No completa el modelo
+  general de componentes, bootstrap, spawning, templates, archetypes,
+  provenance viva ni el puente `DefinitionId` -> `EntityId`. Que estas
+  capacidades estén fuera de 4.4 no implica que se implementen en 4.5.
 - **4.6 — RNG + rules:** define ownership, streams, política de semillas y
   reglas funcionales sobre la infraestructura determinista existente.
 - **4.10 — actions + simulation:** introduce el modelo general de acciones y
   simulación del que `RollAction` es sólo una vertical inicial.
 
 La frontera entre 4.4 y 4.5 queda así fijada: 4.4 termina en la definición y
-validación de contenido declarativo; 4.5 empieza cuando ese contenido pueda
-relacionarse con registros vivos de un Generic World State real.
+validación de contenido declarativo; 4.5 desarrolla hechos runtime mutables
+independientes del catálogo. No requiere ni implementa todavía la asociación
+general entre definiciones y entidades vivas. Los documentos históricos de
+4.2 a 4.4 describen su alcance al cierre; no se reescriben para atribuirles
+esta delimitación incremental posterior.
 
 El contenido tipado de dominio se introducirá cuando exista un primer modelo
 concreto validado y un consumidor real. En ese momento se decidirá si encaja en

@@ -69,8 +69,10 @@ núcleo portable.
 
 El proyecto se encuentra en su fase de cimentación técnica. Su núcleo vivo es
 deliberadamente mínimo: `EntityId` representa identidad dentro de un
-`WorldState`, que actualmente sólo emite IDs monotónicos, reconoce los ya
-emitidos, cuenta entidades y expone una revisión técnica. Un ID distinto de
+`WorldState`, que emite IDs monotónicos, reconoce y enumera los ya emitidos,
+cuenta entidades y expone una revisión técnica. La Fase 4.5 añade contención
+directa opcional entre entidades, con asociación, reasociación y retirada
+controladas; no constituye un sistema espacial completo. Un ID distinto de
 cero es válido como valor, pero su existencia siempre se consulta respecto de
 un mundo concreto; los IDs no son globalmente únicos entre mundos.
 
@@ -103,7 +105,7 @@ reglas, acciones o simulación, persistencia, conocimiento, población, gameplay
 ni Content Packs reales. La fase 4.2 construyó sustancialmente la
 infraestructura genérica del Content Pack system y 4.3 cerró el contrato del
 núcleo mínimo. La fase 4.4 reconcilia y cierra el alcance de contenido sin
-duplicar 4.2; 4.5 comienza cuando `WorldState` evoluciona hacia un estado vivo
+duplicar 4.2; 4.5 está en desarrollo y añade la primera capacidad de estado vivo
 genérico real. El puente general `DefinitionId` -> `EntityId` no pertenece a
 4.4. Las fases 4.6 y 4.10 abordarán respectivamente RNG y reglas funcionales, y
 el modelo general de acciones y simulación.
