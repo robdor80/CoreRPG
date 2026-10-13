@@ -1,3 +1,4 @@
+#include <corerpg/content_catalog.hpp>
 #include <corerpg/persistence.hpp>
 
 #include "persistence_internal.hpp"
@@ -10,7 +11,8 @@ namespace corerpg {
 
 WorldState::WorldState(const CampaignSnapshot& snapshot)
     : last_entity_id_{snapshot.last_entity_id}, revision_{snapshot.revision},
-      containment_(snapshot.containment.size()) {
+      containment_(snapshot.containment.size()), definitions_(0), relations_(0), populations_(0),
+      population_memberships_(0) {
     for (std::size_t i = 0; i < snapshot.containment.size(); ++i) {
         containment_[i] = {snapshot.containment[i].entity, snapshot.containment[i].container};
     }
@@ -28,6 +30,18 @@ CampaignSnapshot Persistence::capture(const WorldState& world, const RandomStrea
     snapshot.last_entity_id = world.last_entity_id_;
     snapshot.revision = world.revision_;
     snapshot.master_seed = random.master_seed_;
+    if (!world.definitions_.empty() || !world.relations_.empty() || !world.populations_.empty() ||
+        !world.population_memberships_.empty() ||
+        (world.last_entity_id_ <= 1 && world.revision_ != world.last_entity_id_)) {
+        snapshot.format_version = population_save_format_version;
+    }
+    snapshot.definitions.reserve(world.definitions_.size());
+    for (const auto& [entity, definition] : world.definitions_) {
+        snapshot.definitions.emplace_back(entity, definition->value());
+    }
+    snapshot.relations = world.relations_;
+    snapshot.populations = world.populations_;
+    snapshot.population_memberships = world.population_memberships_;
     snapshot.containment.reserve(world.containment_.size());
     for (const auto& [entity, container] : world.containment_) {
         snapshot.containment.push_back({entity, container});
@@ -43,6 +57,10 @@ PersistenceStatus Persistence::validate(const CampaignSnapshot& snapshot,
                                         PersistenceLimits limits) {
     if (snapshot.format_version != save_format_version) {
         return PersistenceStatus::unsupported_version;
+    }
+    if (!snapshot.definitions.empty() || !snapshot.relations.empty() ||
+        !snapshot.populations.empty() || !snapshot.population_memberships.empty()) {
+        return PersistenceStatus::unexpected_fields;
     }
     if (snapshot.rng_policy != save_rng_policy) {
         return PersistenceStatus::unsupported_rng_policy;
@@ -223,9 +241,7 @@ PersistenceStatus Persistence::restore(const CampaignSnapshot& snapshot, WorldSt
     static_assert(noexcept(world.containment_.swap(replacement_world.containment_)));
     static_assert(noexcept(random.streams_.swap(replacement_random.streams_)));
     static_assert(std::is_nothrow_swappable_v<std::uint64_t>);
-    std::swap(world.last_entity_id_, replacement_world.last_entity_id_);
-    std::swap(world.revision_, replacement_world.revision_);
-    world.containment_.swap(replacement_world.containment_);
+    world.swap_state(replacement_world);
     std::swap(random.master_seed_, replacement_random.master_seed_);
     random.streams_.swap(replacement_random.streams_);
     return PersistenceStatus::success;

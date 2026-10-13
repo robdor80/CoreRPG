@@ -6,6 +6,8 @@
 #include <cstdint>
 #include <optional>
 #include <span>
+#include <string>
+#include <string_view>
 #include <utility>
 #include <vector>
 
@@ -13,6 +15,23 @@ namespace corerpg {
 
 inline constexpr std::uint32_t save_format_version = 1;
 inline constexpr std::uint32_t save_rng_policy = 1;
+inline constexpr std::uint32_t population_save_format_version = 2;
+
+/// Owned canonical text, resolved to a strong DefinitionId against the supplied catalog at load.
+struct DefinitionBindingSnapshot final {
+    EntityId entity;
+    std::string definition_id;
+    DefinitionBindingSnapshot() : definition_id{"", 0} {}
+    DefinitionBindingSnapshot(EntityId id, std::string_view definition)
+        : entity{id}, definition_id{definition.data(), definition.size()} {}
+    DefinitionBindingSnapshot(const DefinitionBindingSnapshot&) = default;
+    DefinitionBindingSnapshot& operator=(const DefinitionBindingSnapshot&) = default;
+    DefinitionBindingSnapshot& operator=(DefinitionBindingSnapshot&&) = default;
+    // Copy string construction propagates MSVC debug-proxy failures, unlike string move.
+    DefinitionBindingSnapshot(DefinitionBindingSnapshot&& other)
+        : entity{other.entity}, definition_id{other.definition_id} {}
+    bool operator==(const DefinitionBindingSnapshot&) const = default;
+};
 
 struct ContainmentSnapshot final {
     EntityId entity;
@@ -38,6 +57,10 @@ struct CampaignSnapshot final {
     // default vector construction and vector moves are noexcept on that STL.
     std::vector<ContainmentSnapshot> containment = std::vector<ContainmentSnapshot>(0);
     std::vector<RandomStreamSnapshot> streams = std::vector<RandomStreamSnapshot>(0);
+    std::vector<DefinitionBindingSnapshot> definitions = std::vector<DefinitionBindingSnapshot>(0);
+    std::vector<EntityRelation> relations = std::vector<EntityRelation>(0);
+    std::vector<PopulationRecord> populations = std::vector<PopulationRecord>(0);
+    std::vector<PopulationMembership> population_memberships = std::vector<PopulationMembership>(0);
 
     CampaignSnapshot() = default;
     CampaignSnapshot(const CampaignSnapshot&) = default;
@@ -49,6 +72,10 @@ struct CampaignSnapshot final {
           master_seed{other.master_seed} {
         containment.swap(other.containment);
         streams.swap(other.streams);
+        definitions.swap(other.definitions);
+        relations.swap(other.relations);
+        populations.swap(other.populations);
+        population_memberships.swap(other.population_memberships);
     }
     bool operator==(const CampaignSnapshot&) const = default;
 };
@@ -73,6 +100,7 @@ enum class PersistenceStatus : std::uint8_t {
     noncanonical_links,
     cycle_detected,
     noncanonical_streams,
+    unexpected_fields,
 };
 
 struct SerializedSnapshot final {
