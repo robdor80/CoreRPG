@@ -154,4 +154,45 @@ TEST(PopulationTest, NestedCollectivesHaveOriginsWithoutHumanOrSpatialAssumption
     EXPECT_EQ(world.population_of(group)->total, 3U);
 }
 
+TEST(PopulationTest, NeutralRosterSettlementAndNonHumanColonyUseTheSameContracts) {
+    struct Scenario {
+        const char* name;
+        std::uint64_t total;
+        corerpg::RelationKind association;
+    };
+    for (const auto scenario : {Scenario{"logical roster", 512, corerpg::RelationKind{1}},
+                                Scenario{"settlement reserve", 2'000, corerpg::RelationKind{2}},
+                                Scenario{"non-human colony without homes or kinship", 1'000'000'000,
+                                         corerpg::RelationKind{UINT64_MAX}}}) {
+        SCOPED_TRACE(scenario.name);
+        corerpg::WorldState world;
+        const auto group = world.create_entity();
+        const auto association_target = world.create_entity();
+        ASSERT_EQ(world.declare_population(group, scenario.total), PopulationChange::applied);
+        const auto issued = world.materialize_population(group, 32, 32);
+        ASSERT_EQ(issued.status, MaterializationStatus::applied);
+        EXPECT_EQ(issued.first, EntityId{3});
+        for (std::uint64_t i = 0; i < issued.count; ++i) {
+            const EntityId unit{issued.first.value() + i};
+            EXPECT_EQ(world.add_relation({unit, scenario.association, association_target}),
+                      corerpg::RelationChange::applied);
+            EXPECT_EQ(world.population_origin(unit), group);
+            EXPECT_EQ(world.container_of(unit).status, corerpg::ContainmentStatus::uncontained);
+        }
+        EXPECT_EQ(world.population_of(group)->latent, scenario.total - 32);
+        EXPECT_EQ(world.entity_count(), 34U);
+        EXPECT_EQ(world.population_memberships().size(), 32U);
+        std::set<EntityId> visual{EntityId{3}, EntityId{4}};
+        visual.clear();
+        corerpg::RandomStreams random{42};
+        corerpg::WorldState loaded;
+        corerpg::RandomStreams resumed{0};
+        const auto snapshot = corerpg::Persistence::capture(world, random);
+        ASSERT_EQ(corerpg::Persistence::load(corerpg::Persistence::serialize(snapshot).bytes,
+                                             loaded, resumed),
+                  corerpg::PersistenceStatus::success);
+        EXPECT_EQ(corerpg::Persistence::capture(loaded, resumed), snapshot);
+    }
+}
+
 } // namespace

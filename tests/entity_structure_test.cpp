@@ -3,8 +3,8 @@
 
 #include "entity_structure_helpers.hpp"
 
-#include <gtest/gtest.h>
 #include <array>
+#include <gtest/gtest.h>
 #include <vector>
 
 TEST(EntityStructureContractTest, RelationKindsAreStrongStableFullWidthLabels) {
@@ -162,4 +162,22 @@ TEST(EntityAssociationTest, NonAllocatingDefinitionValidationMatchesExistingGram
     EXPECT_NE(build.catalog()->find_by_value("example.structural:unit"), nullptr);
     EXPECT_EQ(build.catalog()->find_by_value("example.structural:missing"), nullptr);
     EXPECT_EQ(build.catalog()->find_by_value("bad"), nullptr);
+}
+
+TEST(EntityAssociationTest, DistinctTypesBetweenSameEntitiesDoNotImplyReverseMembership) {
+    corerpg::WorldState world;
+    const auto a = world.create_entity();
+    const auto b = world.create_entity();
+    const corerpg::EntityRelation first{a, corerpg::RelationKind{1}, b};
+    const corerpg::EntityRelation second{a, corerpg::RelationKind{2}, b};
+    EXPECT_EQ(world.add_relation(first), corerpg::RelationChange::applied);
+    EXPECT_EQ(world.add_relation(second), corerpg::RelationChange::applied);
+    EXPECT_FALSE(world.has_relation({b, first.kind, a}));
+    EXPECT_EQ(world.relations_from(a).size(), 2U);
+    EXPECT_EQ(world.remove_relation({{}, first.kind, b}),
+              corerpg::RelationChange::source_not_found);
+    EXPECT_EQ(world.remove_relation({a, first.kind, corerpg::EntityId{99}}),
+              corerpg::RelationChange::target_not_found);
+    EXPECT_EQ(world.remove_relation({a, {}, b}), corerpg::RelationChange::invalid_kind);
+    EXPECT_EQ(world.revision(), 4U);
 }
