@@ -353,7 +353,7 @@ mutación persistente. Los tests ejercitan sus límites sobre las mismas
 transiciones internas que usa producción, sin setters ni APIs de restauración
 públicos; no construyen un `WorldState` público agotado.
 
-La Fase 4.5 permanece abierta. El Incremento 2 incorpora contención; la
+Al cierre de Fase 4.5, el Incremento 2 incorporó contención; la
 integración, auditoría final y cierre pertenecen al Incremento 3.
 
 Actualmente `entity_count()` coincide con el último ID emitido porque sólo
@@ -475,8 +475,9 @@ y permanece hasta una mutación; no significa que exista guardado en disco.
 No hay un modelo general de componentes o datos de dominio, instanciación
 desde Content Packs, spawning, templates, archetypes ni provenance de instancia.
 La contención opcional no es un sistema completo de espacio o movimiento.
-La fase sigue pendiente de integración en `main`, CI verde y acta histórica;
-esta documentación técnica no declara su cierre oficial.
+Fase 4.5 quedó integrada en `main` mediante la PR #3 y validada con CI verde
+Windows/MSVC y Linux/GCC (run 38365231770); el cierre se registra en
+`docs/phases/4.5-generic-world-state.md`. Esto no añade serialización ni dominio.
 
 Las fronteras futuras son:
 
