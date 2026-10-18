@@ -119,7 +119,7 @@ TEST(PopulationPersistenceTest, NewFieldsCannotBeDowngradedIntoV1) {
     auto snapshot = v2_sample();
     snapshot.format_version = 1;
     EXPECT_EQ(Persistence::serialize(snapshot).status, PersistenceStatus::unexpected_fields);
-    snapshot.format_version = 3;
+    snapshot.format_version = 4; // v3 is supported by phase 4.9; retain unknown-version coverage.
     EXPECT_EQ(Persistence::validate(snapshot), PersistenceStatus::unsupported_version);
     corerpg::WorldState world;
     const auto entity = world.create_entity();

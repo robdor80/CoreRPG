@@ -18,6 +18,9 @@ inline constexpr std::size_t save_header_size = 56;
 inline constexpr std::size_t save_minimum_size = 60;
 inline constexpr std::size_t save_v2_header_size = 88;
 inline constexpr std::size_t save_v2_minimum_size = 92;
+inline constexpr std::size_t save_v3_header_size = 96;
+inline constexpr std::size_t save_v3_minimum_size = 100;
+inline constexpr std::size_t knowledge_record_size = 62;
 
 [[nodiscard]] inline std::uint32_t save_checksum(std::span<const std::uint8_t> bytes) noexcept {
     std::uint32_t crc = 0xFFFFFFFFU;
@@ -80,6 +83,20 @@ save_v2_minimum_size_for(std::uint64_t links, std::uint64_t streams, std::uint64
 }
 
 [[nodiscard]] inline std::optional<std::size_t>
+save_v3_minimum_size_for(std::uint64_t links, std::uint64_t streams, std::uint64_t definitions,
+                         std::uint64_t relations, std::uint64_t populations,
+                         std::uint64_t memberships, std::uint64_t knowledge,
+                         PersistenceLimits limits) noexcept {
+    const auto base = save_v2_minimum_size_for(links, streams, definitions, relations, populations,
+                                               memberships, limits);
+    const auto maximum = std::min(limits.max_bytes,
+        static_cast<std::uint64_t>(std::numeric_limits<std::size_t>::max()));
+    if (!base || maximum - *base < 8 || knowledge > limits.max_knowledge ||
+        knowledge > (maximum - *base - 8) / knowledge_record_size) return std::nullopt;
+    return static_cast<std::size_t>(*base + 8 + knowledge * knowledge_record_size);
+}
+
+[[nodiscard]] inline std::optional<std::size_t>
 encoded_save_size(const CampaignSnapshot& snapshot, PersistenceLimits limits) noexcept {
     if (snapshot.format_version == save_format_version) {
         return save_size(snapshot.containment.size(), snapshot.streams.size(), limits);
@@ -88,6 +105,10 @@ encoded_save_size(const CampaignSnapshot& snapshot, PersistenceLimits limits) no
                                          snapshot.definitions.size(), snapshot.relations.size(),
                                          snapshot.populations.size(),
                                          snapshot.population_memberships.size(), limits);
+    if (snapshot.format_version == save_format_version_v3)
+        size = save_v3_minimum_size_for(snapshot.containment.size(), snapshot.streams.size(),
+            snapshot.definitions.size(), snapshot.relations.size(), snapshot.populations.size(),
+            snapshot.population_memberships.size(), snapshot.knowledge.size(), limits);
     if (!size) {
         return std::nullopt;
     }
@@ -99,6 +120,12 @@ encoded_save_size(const CampaignSnapshot& snapshot, PersistenceLimits limits) no
             length > maximum - *size) {
             return std::nullopt;
         }
+        *size += length;
+    }
+    for (const auto& record : snapshot.knowledge) {
+        const auto length = record.fact.definition_id().size();
+        if (length > limits.max_definition_bytes || length > UINT32_MAX || length > maximum - *size)
+            return std::nullopt;
         *size += length;
     }
     return size;

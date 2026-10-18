@@ -93,6 +93,7 @@ struct PersistenceLimits final {
     std::uint64_t max_populations{1'000'000};
     std::uint64_t max_memberships{1'000'000};
     std::uint64_t max_definition_bytes{4096};
+    std::uint64_t max_knowledge{1'000'000};
 };
 
 enum class PersistenceStatus : std::uint8_t {
@@ -119,6 +120,8 @@ enum class PersistenceStatus : std::uint8_t {
     noncanonical_memberships,
     catalog_required,
     definition_not_found,
+    invalid_knowledge,
+    noncanonical_knowledge,
 };
 
 struct SerializedSnapshot final {
@@ -148,7 +151,7 @@ struct DecodedSnapshot final {
 /// Callers must exclude concurrent mutations throughout capture/restore/load.
 class Persistence final {
   public:
-    /// Chooses v1 only for lossless legacy state, otherwise explicit v2.
+    /// Chooses the minimum lossless format: v1, v2 structural state, v3 knowledge.
     [[nodiscard]] static CampaignSnapshot capture(const WorldState& world,
                                                   const RandomStreams& random);
     [[nodiscard]] static PersistenceStatus validate(const CampaignSnapshot& snapshot,
