@@ -33,6 +33,7 @@ add_executable(
     rule_check_test.cpp
     roll_action_test.cpp
     smoke_test.cpp
+    simulation_test.cpp
     world_state_integration_test.cpp
     world_state_test.cpp
 )
