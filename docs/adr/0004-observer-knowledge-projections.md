@@ -1,6 +1,7 @@
 # ADR-0004 — Conocimiento recordado y proyecciones por observador
 
-- Estado: aceptado para implementación de 4.9, sujeto a auditoría humana.
+- Estado: aceptado; integrado en main mediante PR #7, merge `e7108e5`.
+  Actualizado al iniciar 4.10; el contrato siguiente conserva las decisiones de 4.9.
 - Fecha: 2026-10-18.
 
 ## Decisión y clasificación
