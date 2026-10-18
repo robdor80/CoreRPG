@@ -21,6 +21,7 @@ add_executable(
     content_manifest_test.cpp
     content_id_test.cpp
     entity_structure_test.cpp
+    knowledge_test.cpp
     population_test.cpp
     population_persistence_test.cpp
     persistence_test.cpp

@@ -12,7 +12,8 @@ namespace corerpg {
 WorldState::WorldState(const CampaignSnapshot& snapshot, const ContentCatalog* catalog)
     : last_entity_id_{snapshot.last_entity_id}, revision_{snapshot.revision},
       containment_(snapshot.containment.size()), definitions_(0), relations_(snapshot.relations),
-      populations_(snapshot.populations), population_memberships_(snapshot.population_memberships) {
+      populations_(snapshot.populations), population_memberships_(snapshot.population_memberships),
+      knowledge_(snapshot.knowledge) {
     for (std::size_t i = 0; i < snapshot.containment.size(); ++i) {
         containment_[i] = {snapshot.containment[i].entity, snapshot.containment[i].container};
     }
@@ -47,6 +48,8 @@ CampaignSnapshot Persistence::capture(const WorldState& world, const RandomStrea
     snapshot.relations = world.relations_;
     snapshot.populations = world.populations_;
     snapshot.population_memberships = world.population_memberships_;
+    snapshot.knowledge = world.knowledge_;
+    if (!snapshot.knowledge.empty()) snapshot.format_version = save_format_version_v3;
     snapshot.containment.reserve(world.containment_.size());
     for (const auto& [entity, container] : world.containment_) {
         snapshot.containment.push_back({entity, container});
@@ -60,6 +63,9 @@ CampaignSnapshot Persistence::capture(const WorldState& world, const RandomStrea
 
 PersistenceStatus Persistence::validate(const CampaignSnapshot& snapshot,
                                         PersistenceLimits limits) {
+    // V3 is introduced as a candidate now; its codec is implemented in increment 4.
+    if (!snapshot.knowledge.empty() && snapshot.format_version != save_format_version_v3)
+        return PersistenceStatus::unexpected_fields;
     if (snapshot.format_version != save_format_version &&
         snapshot.format_version != save_format_version_v2) {
         return PersistenceStatus::unsupported_version;

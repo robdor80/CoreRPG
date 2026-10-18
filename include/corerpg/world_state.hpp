@@ -2,6 +2,7 @@
 
 #include <corerpg/entity_id.hpp>
 #include <corerpg/entity_structure.hpp>
+#include <corerpg/knowledge.hpp>
 
 #include <cstdint>
 #include <memory>
@@ -123,6 +124,14 @@ class WorldState final {
     [[nodiscard]] MaterializationResult materialize_population(EntityId group, std::uint64_t count,
                                                                std::uint64_t max_batch = 256);
 
+    /// Privileged observation: remembers exactly one current fact, including known absence.
+    [[nodiscard]] KnowledgeChange learn_fact(EntityId observer, FactKey key);
+    /// Revoking existence also removes this observer's dependent facts, in one mutation.
+    [[nodiscard]] KnowledgeChange revoke_fact(EntityId observer, FactKey key) noexcept;
+    [[nodiscard]] KnowledgeChange revoke_knowledge(EntityId observer) noexcept;
+    /// Privileged borrowed table; use Visibility for untrusted consumers.
+    [[nodiscard]] std::span<const KnowledgeRecord> knowledge_of(EntityId observer) const noexcept;
+
   private:
     friend class Persistence;
     /// Private validated staging path; may throw without touching an existing world.
@@ -135,6 +144,7 @@ class WorldState final {
         relations_.swap(other.relations_);
         populations_.swap(other.populations_);
         population_memberships_.swap(other.population_memberships_);
+        knowledge_.swap(other.knowledge_);
     }
     EntityId::value_type last_entity_id_{0};
     revision_type revision_{0};
@@ -144,6 +154,7 @@ class WorldState final {
     std::vector<EntityRelation> relations_;
     std::vector<PopulationRecord> populations_;
     std::vector<PopulationMembership> population_memberships_;
+    std::vector<KnowledgeRecord> knowledge_;
 };
 
 } // namespace corerpg
