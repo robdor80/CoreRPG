@@ -14,7 +14,8 @@ class SimulationTest : public ::testing::Test {
     WorldState world;
     RandomStreams random{42};
     void SetUp() override {
-        for (int i = 0; i < 4; ++i) ASSERT_TRUE(world.create_entity().is_valid());
+        for (int i = 0; i < 4; ++i)
+            ASSERT_TRUE(world.create_entity().is_valid());
     }
 };
 
@@ -63,9 +64,8 @@ TEST_F(SimulationTest, NoOpDoesNotInvalidateFollowingRevisionGuard) {
 }
 
 TEST_F(SimulationTest, OversizedBatchAndShortOutputRejectWholeStepBeforeAnyAction) {
-    const std::array actions{
-        ActionRequest{actor, PlaceEntityAction{unit, first}},
-        ActionRequest{actor, StreamRollAction{9, 0, 100}}};
+    const std::array actions{ActionRequest{actor, PlaceEntityAction{unit, first}},
+                             ActionRequest{actor, StreamRollAction{9, 0, 100}}};
     std::array<ActionResult, 3> output;
     output[0].revision_before = 999;
     const auto untouched = output;
@@ -94,9 +94,8 @@ TEST_F(SimulationTest, EmptyAndZeroBudgetStepsDoNotInventTimeOrMutateState) {
 
 TEST_F(SimulationTest, PerActionBudgetRejectsOneRequestAndContinuesTheBatch) {
     const std::array checks{RuleCheck{RuleCheckKind::entity_exists, unit}};
-    const std::array actions{
-        ActionRequest{actor, StreamRollAction{9, 0, 100}, {}, checks},
-        ActionRequest{actor, PlaceEntityAction{unit, first}}};
+    const std::array actions{ActionRequest{actor, StreamRollAction{9, 0, 100}, {}, checks},
+                             ActionRequest{actor, PlaceEntityAction{unit, first}}};
     std::array<ActionResult, 2> output;
     EXPECT_EQ(Simulation::step(world, random, actions, output, {2, {0}}).processed, 2U);
     EXPECT_EQ(output[0].rejection, ActionRejection::precondition_limit_exceeded);
@@ -107,18 +106,21 @@ TEST_F(SimulationTest, PerActionBudgetRejectsOneRequestAndContinuesTheBatch) {
 TEST_F(SimulationTest, BatchPartitionDoesNotAlterCausalityOrRng) {
     WorldState other{world};
     RandomStreams other_random{random};
-    const std::array actions{
-        ActionRequest{actor, StreamRollAction{9, 0, 100}},
-        ActionRequest{actor, PlaceEntityAction{unit, first}},
-        ActionRequest{actor, StreamRollAction{9, 0, 100}},
-        ActionRequest{actor, PlaceEntityAction{unit, second}},
-        ActionRequest{actor, StreamRollAction{0, 0, 100}}};
+    const std::array actions{ActionRequest{actor, StreamRollAction{9, 0, 100}},
+                             ActionRequest{actor, PlaceEntityAction{unit, first}},
+                             ActionRequest{actor, StreamRollAction{9, 0, 100}},
+                             ActionRequest{actor, PlaceEntityAction{unit, second}},
+                             ActionRequest{actor, StreamRollAction{0, 0, 100}}};
     std::array<ActionResult, actions.size()> together, split;
     EXPECT_EQ(Simulation::step(world, random, actions, together).processed, actions.size());
     EXPECT_EQ(Simulation::step(other, other_random, std::span{actions}.first(2),
-                              std::span{split}.first(2)).processed, 2U);
+                               std::span{split}.first(2))
+                  .processed,
+              2U);
     EXPECT_EQ(Simulation::step(other, other_random, std::span{actions}.subspan(2),
-                              std::span{split}.subspan(2)).processed, 3U);
+                               std::span{split}.subspan(2))
+                  .processed,
+              3U);
     EXPECT_EQ(together, split);
     EXPECT_EQ(Persistence::capture(world, random), Persistence::capture(other, other_random));
 }
@@ -171,8 +173,7 @@ TEST_F(SimulationTest, DistantInhabitantsKeepIdentityAndConsequencesAcrossSteps)
     std::array<ActionResult, 2> output;
     EXPECT_EQ(Simulation::step(world, random, outward, output).processed, 2U);
     const std::array checks{RuleCheck{RuleCheckKind::direct_container_is, visitor, second}};
-    const std::array onward{
-        ActionRequest{peer, PlaceEntityAction{peer, second}, {}, checks}};
+    const std::array onward{ActionRequest{peer, PlaceEntityAction{peer, second}, {}, checks}};
     EXPECT_EQ(Simulation::step(world, random, onward, output).processed, 1U);
     EXPECT_EQ(world.container_of(peer).container, second);
     EXPECT_TRUE(world.has_relation({peer, RelationKind{17}, visitor}));

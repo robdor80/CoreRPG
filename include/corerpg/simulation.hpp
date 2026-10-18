@@ -38,9 +38,9 @@ struct SimulationResult final {
 class Simulation final {
   public:
     [[nodiscard]] static SimulationResult step(WorldState& world, RandomStreams& random,
-                                                std::span<const ActionRequest> actions,
-                                                std::span<ActionResult> results,
-                                                SimulationLimits limits = {}) noexcept;
+                                               std::span<const ActionRequest> actions,
+                                               std::span<ActionResult> results,
+                                               SimulationLimits limits = {}) noexcept;
 };
 
 } // namespace corerpg

@@ -17,7 +17,8 @@ class ActionTest : public ::testing::Test {
     WorldState world;
     RandomStreams random{42};
     void SetUp() override {
-        for (int i = 0; i < 4; ++i) ASSERT_TRUE(world.create_entity().is_valid());
+        for (int i = 0; i < 4; ++i)
+            ASSERT_TRUE(world.create_entity().is_valid());
     }
     ActionResult run(ActionOperation operation) {
         return ActionEngine::process(world, random, {actor, operation});
@@ -107,9 +108,12 @@ TEST_F(ActionTest, RelationsRejectMissingEndpointsAndZeroKind) {
     rejected({actor, AddRelationAction{{missing, kind, unit}}}, ActionRejection::entity_not_found);
     rejected({actor, AddRelationAction{{unit, kind, missing}}}, ActionRejection::target_not_found);
     rejected({actor, AddRelationAction{{unit, {}, first}}}, ActionRejection::invalid_relation_kind);
-    rejected({actor, RemoveRelationAction{{missing, kind, unit}}}, ActionRejection::entity_not_found);
-    rejected({actor, RemoveRelationAction{{unit, kind, missing}}}, ActionRejection::target_not_found);
-    rejected({actor, RemoveRelationAction{{unit, {}, first}}}, ActionRejection::invalid_relation_kind);
+    rejected({actor, RemoveRelationAction{{missing, kind, unit}}},
+             ActionRejection::entity_not_found);
+    rejected({actor, RemoveRelationAction{{unit, kind, missing}}},
+             ActionRejection::target_not_found);
+    rejected({actor, RemoveRelationAction{{unit, {}, first}}},
+             ActionRejection::invalid_relation_kind);
 }
 
 TEST_F(ActionTest, StaleRevisionIsCheckedBeforePreconditionsOrRng) {
@@ -134,23 +138,24 @@ TEST_F(ActionTest, PreconditionsAreOrderedAndEvaluatedAgainstCurrentReality) {
     ASSERT_EQ(run(PlaceEntityAction{unit, first}).outcome, ActionOutcome::accepted);
     result = ActionEngine::process(world, random, request);
     EXPECT_EQ(result.precondition_index, 2U);
-    const ActionRequest shorter{actor, PlaceEntityAction{unit, second}, {},
-                                std::span{checks}.first(2)};
+    const ActionRequest shorter{
+        actor, PlaceEntityAction{unit, second}, {}, std::span{checks}.first(2)};
     EXPECT_EQ(ActionEngine::process(world, random, shorter).outcome, ActionOutcome::accepted);
     rejected(shorter, ActionRejection::precondition_failed);
 }
 
 TEST_F(ActionTest, MalformedAndMissingPreconditionsRemainDiagnosableWithoutEffects) {
-    const std::array checks{
-        RuleCheck{static_cast<RuleCheckKind>(255), unit},
-        RuleCheck{RuleCheckKind::entity_exists, {}, {}},
-        RuleCheck{RuleCheckKind::direct_container_is, missing, first},
-        RuleCheck{RuleCheckKind::direct_container_is, unit, missing}};
+    const std::array checks{RuleCheck{static_cast<RuleCheckKind>(255), unit},
+                            RuleCheck{RuleCheckKind::entity_exists, {}, {}},
+                            RuleCheck{RuleCheckKind::direct_container_is, missing, first},
+                            RuleCheck{RuleCheckKind::direct_container_is, unit, missing}};
     const std::array statuses{RuleCheckStatus::malformed_check, RuleCheckStatus::malformed_check,
-                              RuleCheckStatus::subject_not_found, RuleCheckStatus::related_not_found};
+                              RuleCheckStatus::subject_not_found,
+                              RuleCheckStatus::related_not_found};
     for (std::size_t i = 0; i < checks.size(); ++i) {
         const auto before = Persistence::capture(world, random);
-        const auto result = ActionEngine::process(world, random,
+        const auto result = ActionEngine::process(
+            world, random,
             {actor, StreamRollAction{9, 0, 100}, {}, std::span{checks}.subspan(i, 1)});
         EXPECT_EQ(result.rejection, ActionRejection::precondition_failed);
         EXPECT_EQ(result.precondition_status, statuses[i]);
@@ -161,8 +166,8 @@ TEST_F(ActionTest, MalformedAndMissingPreconditionsRemainDiagnosableWithoutEffec
 TEST_F(ActionTest, PreconditionBudgetIsCheckedBeforeExaminingInputFacts) {
     const std::array checks{RuleCheck{RuleCheckKind::entity_exists, unit}};
     const auto before = Persistence::capture(world, random);
-    const auto result = ActionEngine::process(world, random,
-        {{}, StreamRollAction{9, 1, 9}, {}, checks}, {0});
+    const auto result =
+        ActionEngine::process(world, random, {{}, StreamRollAction{9, 1, 9}, {}, checks}, {0});
     EXPECT_EQ(result.rejection, ActionRejection::precondition_limit_exceeded);
     EXPECT_EQ(Persistence::capture(world, random), before);
     EXPECT_EQ(ActionEngine::process(world, random, {actor, StreamRollAction{9, 5, 5}}, {0}).outcome,
@@ -173,8 +178,8 @@ TEST_F(ActionTest, StreamRollMatchesLegacyPrimitiveAndNeverMutatesWorld) {
     RandomStreams expected{42};
     const auto revision = world.revision();
     constexpr auto maximum = std::numeric_limits<std::uint64_t>::max();
-    const std::array<std::pair<std::uint64_t, std::uint64_t>, 3> ranges{{
-        {0, maximum}, {0, (std::uint64_t{1} << 63) + 1}, {3, 900}}};
+    const std::array<std::pair<std::uint64_t, std::uint64_t>, 3> ranges{
+        {{0, maximum}, {0, (std::uint64_t{1} << 63) + 1}, {3, 900}}};
     for (const auto& [minimum, max] : ranges) {
         const auto result = run(StreamRollAction{9, minimum, max});
         EXPECT_EQ(result.outcome, ActionOutcome::accepted);
@@ -209,7 +214,8 @@ TEST_F(ActionTest, RevisionExhaustionRejectsMutationsButAllowsNoOpsAndRolls) {
     rejected({actor, PlaceEntityAction{unit, second}}, ActionRejection::revision_exhausted);
     rejected({actor, RemoveContainmentAction{unit}}, ActionRejection::revision_exhausted);
     rejected({actor, AddRelationAction{{unit, kind, second}}}, ActionRejection::revision_exhausted);
-    rejected({actor, RemoveRelationAction{{unit, kind, first}}}, ActionRejection::revision_exhausted);
+    rejected({actor, RemoveRelationAction{{unit, kind, first}}},
+             ActionRejection::revision_exhausted);
     EXPECT_EQ(run(PlaceEntityAction{unit, first}).outcome, ActionOutcome::no_change);
     EXPECT_EQ(run(AddRelationAction{{unit, kind, first}}).outcome, ActionOutcome::no_change);
     EXPECT_EQ(run(RemoveContainmentAction{actor}).outcome, ActionOutcome::no_change);

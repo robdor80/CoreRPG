@@ -34,8 +34,8 @@ struct StreamRollAction final {
     std::uint64_t maximum{};
 };
 
-using ActionOperation = std::variant<PlaceEntityAction, RemoveContainmentAction,
-                                     AddRelationAction, RemoveRelationAction, StreamRollAction>;
+using ActionOperation = std::variant<PlaceEntityAction, RemoveContainmentAction, AddRelationAction,
+                                     RemoveRelationAction, StreamRollAction>;
 
 /// Privileged structured input, borrowed only for the duration of process/step.
 /// Actor identifies the logical origin, not permission over the operation's targets.
@@ -85,8 +85,8 @@ struct RollConsequence final {
     bool consumed_random{};
     bool operator==(const RollConsequence&) const = default;
 };
-using ActionConsequence = std::variant<std::monostate, ContainmentConsequence,
-                                       RelationConsequence, RollConsequence>;
+using ActionConsequence =
+    std::variant<std::monostate, ContainmentConsequence, RelationConsequence, RollConsequence>;
 
 /// Privileged internal result: may reveal hidden reality, references and revision.
 /// Never hand it directly to an untrusted observer; use authorized ObserverView.
@@ -109,8 +109,8 @@ struct ActionResult final {
 class ActionEngine final {
   public:
     [[nodiscard]] static ActionResult process(WorldState& world, RandomStreams& random,
-                                               const ActionRequest& request,
-                                               ActionLimits limits = {});
+                                              const ActionRequest& request,
+                                              ActionLimits limits = {});
 };
 
 } // namespace corerpg
