@@ -2,6 +2,7 @@
 #include <corerpg/persistence.hpp>
 
 #include "persistence_internal.hpp"
+#include "knowledge_internal.hpp"
 
 #include <algorithm>
 #include <type_traits>
@@ -12,7 +13,8 @@ namespace corerpg {
 WorldState::WorldState(const CampaignSnapshot& snapshot, const ContentCatalog* catalog)
     : last_entity_id_{snapshot.last_entity_id}, revision_{snapshot.revision},
       containment_(snapshot.containment.size()), definitions_(0), relations_(snapshot.relations),
-      populations_(snapshot.populations), population_memberships_(snapshot.population_memberships) {
+      populations_(snapshot.populations), population_memberships_(snapshot.population_memberships),
+      knowledge_(snapshot.knowledge) {
     for (std::size_t i = 0; i < snapshot.containment.size(); ++i) {
         containment_[i] = {snapshot.containment[i].entity, snapshot.containment[i].container};
     }
@@ -20,6 +22,13 @@ WorldState::WorldState(const CampaignSnapshot& snapshot, const ContentCatalog* c
     for (const auto& binding : snapshot.definitions) {
         const auto& id = catalog->find_by_value(binding.definition_id)->id();
         definitions_.emplace_back(binding.entity, std::make_shared<const DefinitionId>(id));
+    }
+    // A caller-created snapshot may retain a mutable alias to a shared string.
+    // Clone at the trust boundary so it cannot mutate the restored world's memory.
+    for (auto& record : knowledge_) {
+        if (!record.fact.definition) continue;
+        const auto text = record.fact.definition_id();
+        record.fact.definition = std::make_shared<const std::string>(text.data(), text.size());
     }
 }
 
@@ -47,6 +56,8 @@ CampaignSnapshot Persistence::capture(const WorldState& world, const RandomStrea
     snapshot.relations = world.relations_;
     snapshot.populations = world.populations_;
     snapshot.population_memberships = world.population_memberships_;
+    snapshot.knowledge = world.knowledge_;
+    if (!snapshot.knowledge.empty()) snapshot.format_version = save_format_version_v3;
     snapshot.containment.reserve(world.containment_.size());
     for (const auto& [entity, container] : world.containment_) {
         snapshot.containment.push_back({entity, container});
@@ -61,9 +72,12 @@ CampaignSnapshot Persistence::capture(const WorldState& world, const RandomStrea
 PersistenceStatus Persistence::validate(const CampaignSnapshot& snapshot,
                                         PersistenceLimits limits) {
     if (snapshot.format_version != save_format_version &&
-        snapshot.format_version != save_format_version_v2) {
+        snapshot.format_version != save_format_version_v2 &&
+        snapshot.format_version != save_format_version_v3) {
         return PersistenceStatus::unsupported_version;
     }
+    if (!snapshot.knowledge.empty() && snapshot.format_version != save_format_version_v3)
+        return PersistenceStatus::unexpected_fields;
     if (snapshot.format_version == save_format_version &&
         (!snapshot.definitions.empty() || !snapshot.relations.empty() ||
          !snapshot.populations.empty() || !snapshot.population_memberships.empty())) {
@@ -84,7 +98,8 @@ PersistenceStatus Persistence::validate(const CampaignSnapshot& snapshot,
     }
     auto remaining_revision = snapshot.revision - last - snapshot.containment.size();
     for (const auto count :
-         {snapshot.definitions.size(), snapshot.relations.size(), snapshot.populations.size()}) {
+         {snapshot.definitions.size(), snapshot.relations.size(), snapshot.populations.size(),
+          snapshot.knowledge.size()}) {
         if (count > remaining_revision) {
             return PersistenceStatus::invalid_world;
         }
@@ -164,6 +179,27 @@ PersistenceStatus Persistence::validate(const CampaignSnapshot& snapshot,
         }
     }
 
+    for (std::size_t i = 0; i < snapshot.knowledge.size(); ++i) {
+        const auto& record = snapshot.knowledge[i];
+        if (!record.observer.is_valid() || record.observer.value() > last ||
+            !detail::canonical_fact(record.fact, last)) return PersistenceStatus::invalid_knowledge;
+        if (i != 0 && detail::knowledge_key(snapshot.knowledge[i - 1]) >= detail::knowledge_key(record))
+            return PersistenceStatus::noncanonical_knowledge;
+    }
+    const auto knows = [&](EntityId observer, EntityId subject) {
+        const auto key = std::pair{observer, FactKey{subject}};
+        const auto it = std::lower_bound(snapshot.knowledge.begin(), snapshot.knowledge.end(), key,
+            [](const auto& record, const auto& value) { return detail::knowledge_key(record) < value; });
+        return it != snapshot.knowledge.end() && detail::knowledge_key(*it) == key;
+    };
+    for (const auto& record : snapshot.knowledge) {
+        const auto& fact = record.fact;
+        if (!knows(record.observer, fact.key.subject) ||
+            (fact.key.target.is_valid() && !knows(record.observer, fact.key.target)) ||
+            (fact.reference.is_valid() && !knows(record.observer, fact.reference)))
+            return PersistenceStatus::invalid_knowledge;
+    }
+
     // Iterative coloring: every link is visited and finalized once. Only sparse
     // records consume memory, never the implicit entity interval or a call stack.
     const auto& links = snapshot.containment;
@@ -214,12 +250,14 @@ SerializedSnapshot Persistence::serialize(const CampaignSnapshot& snapshot,
     detail::append_integer(bytes, snapshot.master_seed, 8);
     detail::append_integer(bytes, snapshot.containment.size(), 8);
     detail::append_integer(bytes, snapshot.streams.size(), 8);
-    if (snapshot.format_version == save_format_version_v2) {
+    if (snapshot.format_version >= save_format_version_v2) {
         detail::append_integer(bytes, snapshot.definitions.size(), 8);
         detail::append_integer(bytes, snapshot.relations.size(), 8);
         detail::append_integer(bytes, snapshot.populations.size(), 8);
         detail::append_integer(bytes, snapshot.population_memberships.size(), 8);
     }
+    if (snapshot.format_version == save_format_version_v3)
+        detail::append_integer(bytes, snapshot.knowledge.size(), 8);
     for (const auto& link : snapshot.containment) {
         detail::append_integer(bytes, link.entity.value(), 8);
         detail::append_integer(bytes, link.container.value(), 8);
@@ -228,7 +266,7 @@ SerializedSnapshot Persistence::serialize(const CampaignSnapshot& snapshot,
         detail::append_integer(bytes, stream.id, 8);
         detail::append_integer(bytes, stream.state, 8);
     }
-    if (snapshot.format_version == save_format_version_v2) {
+    if (snapshot.format_version >= save_format_version_v2) {
         for (const auto& binding : snapshot.definitions) {
             detail::append_integer(bytes, binding.entity.value(), 8);
             detail::append_integer(bytes, binding.definition_id.size(), 4);
@@ -250,6 +288,21 @@ SerializedSnapshot Persistence::serialize(const CampaignSnapshot& snapshot,
             detail::append_integer(bytes, member.entity.value(), 8);
             detail::append_integer(bytes, member.population.value(), 8);
         }
+    }
+    for (const auto& record : snapshot.knowledge) {
+        const auto& fact = record.fact;
+        detail::append_integer(bytes, record.observer.value(), 8);
+        detail::append_integer(bytes, fact.key.subject.value(), 8);
+        detail::append_integer(bytes, static_cast<std::uint8_t>(fact.key.kind), 1);
+        detail::append_integer(bytes, fact.key.relation_kind.value(), 8);
+        detail::append_integer(bytes, fact.key.target.value(), 8);
+        detail::append_integer(bytes, fact.present ? 1 : 0, 1);
+        detail::append_integer(bytes, fact.reference.value(), 8);
+        detail::append_integer(bytes, fact.total, 8);
+        detail::append_integer(bytes, fact.latent, 8);
+        const auto text = fact.definition_id();
+        detail::append_integer(bytes, text.size(), 4);
+        for (const auto character : text) bytes.push_back(static_cast<std::uint8_t>(character));
     }
     const auto checksum = detail::save_checksum(bytes);
     detail::append_integer(bytes, checksum, 4);
@@ -277,11 +330,15 @@ DecodedSnapshot Persistence::deserialize(std::span<const std::uint8_t> bytes,
         return value;
     };
     const auto version = static_cast<std::uint32_t>(read(4));
-    if (version != save_format_version && version != save_format_version_v2) {
+    if (version != save_format_version && version != save_format_version_v2 &&
+        version != save_format_version_v3) {
         return {PersistenceStatus::unsupported_version, std::nullopt};
     }
-    const bool extended = version == save_format_version_v2;
-    if (extended && bytes.size() < detail::save_v2_minimum_size) {
+    const bool extended = version >= save_format_version_v2;
+    const bool with_knowledge = version == save_format_version_v3;
+    const auto header_size = with_knowledge ? detail::save_v3_header_size
+        : extended ? detail::save_v2_header_size : detail::save_header_size;
+    if (bytes.size() < header_size + 4) {
         return {PersistenceStatus::invalid_size, std::nullopt};
     }
     const auto rng_policy = static_cast<std::uint32_t>(read(4));
@@ -297,11 +354,15 @@ DecodedSnapshot Persistence::deserialize(std::span<const std::uint8_t> bytes,
     const auto relation_count = extended ? read(8) : 0;
     const auto population_count = extended ? read(8) : 0;
     const auto membership_count = extended ? read(8) : 0;
-    const auto expected_size =
+    const auto knowledge_count = with_knowledge ? read(8) : 0;
+    auto expected_size =
         extended ? detail::save_v2_minimum_size_for(link_count, stream_count, definition_count,
                                                     relation_count, population_count,
                                                     membership_count, limits)
                  : detail::save_size(link_count, stream_count, limits);
+    if (with_knowledge)
+        expected_size = detail::save_v3_minimum_size_for(link_count, stream_count, definition_count,
+            relation_count, population_count, membership_count, knowledge_count, limits);
     if (!expected_size) {
         return {PersistenceStatus::limit_exceeded, std::nullopt};
     }
@@ -319,7 +380,7 @@ DecodedSnapshot Persistence::deserialize(std::span<const std::uint8_t> bytes,
         const auto body_end = bytes.size() - 4U;
         const auto tail = static_cast<std::size_t>(24U * relation_count + 24U * population_count +
                                                    16U * membership_count);
-        position = detail::save_v2_header_size +
+        position = header_size +
                    static_cast<std::size_t>(16U * (link_count + stream_count));
         for (std::uint64_t i = 0; i < definition_count; ++i) {
             if (position > body_end || body_end - position < 12U) {
@@ -340,9 +401,27 @@ DecodedSnapshot Persistence::deserialize(std::span<const std::uint8_t> bytes,
             }
             position += static_cast<std::size_t>(length);
         }
-        if (position > body_end || body_end - position != tail) {
+        if (position > body_end || tail > body_end - position) {
             return {PersistenceStatus::invalid_size, std::nullopt};
         }
+        position += tail;
+        for (std::uint64_t i = 0; i < knowledge_count; ++i) {
+            if (body_end - position < detail::knowledge_record_size)
+                return {PersistenceStatus::invalid_size, std::nullopt};
+            position += 33; // observer, subject, kind, relation kind, target
+            if (read(1) > 1) return {PersistenceStatus::invalid_knowledge, std::nullopt};
+            position += 24; // reference, total, latent
+            const auto length = read(4);
+            if (length > limits.max_definition_bytes)
+                return {PersistenceStatus::limit_exceeded, std::nullopt};
+            if (length > body_end - position)
+                return {PersistenceStatus::invalid_size, std::nullopt};
+            if (length != 0 && !DefinitionId::is_valid_text(std::string_view{
+                reinterpret_cast<const char*>(bytes.data() + position), static_cast<std::size_t>(length)}))
+                return {PersistenceStatus::invalid_knowledge, std::nullopt};
+            position += static_cast<std::size_t>(length);
+        }
+        if (position != body_end) return {PersistenceStatus::invalid_size, std::nullopt};
     }
 
     CampaignSnapshot snapshot;
@@ -355,7 +434,8 @@ DecodedSnapshot Persistence::deserialize(std::span<const std::uint8_t> bytes,
         definition_count > snapshot.definitions.max_size() ||
         relation_count > snapshot.relations.max_size() ||
         population_count > snapshot.populations.max_size() ||
-        membership_count > snapshot.population_memberships.max_size()) {
+        membership_count > snapshot.population_memberships.max_size() ||
+        knowledge_count > snapshot.knowledge.max_size()) {
         return {PersistenceStatus::limit_exceeded, std::nullopt};
     }
     snapshot.containment.reserve(static_cast<std::size_t>(link_count));
@@ -364,7 +444,8 @@ DecodedSnapshot Persistence::deserialize(std::span<const std::uint8_t> bytes,
     snapshot.relations.reserve(static_cast<std::size_t>(relation_count));
     snapshot.populations.reserve(static_cast<std::size_t>(population_count));
     snapshot.population_memberships.reserve(static_cast<std::size_t>(membership_count));
-    position = extended ? detail::save_v2_header_size : detail::save_header_size;
+    snapshot.knowledge.reserve(static_cast<std::size_t>(knowledge_count));
+    position = header_size;
     for (std::uint64_t i = 0; i < link_count; ++i) {
         const auto entity = read(8);
         const auto container = read(8);
@@ -400,6 +481,24 @@ DecodedSnapshot Persistence::deserialize(std::span<const std::uint8_t> bytes,
         const EntityId population{read(8)};
         snapshot.population_memberships.push_back({entity, population});
     }
+    for (std::uint64_t i = 0; i < knowledge_count; ++i) {
+        KnowledgeRecord record;
+        record.observer = EntityId{read(8)};
+        auto& fact = record.fact;
+        fact.key.subject = EntityId{read(8)};
+        fact.key.kind = static_cast<FactKind>(read(1));
+        fact.key.relation_kind = RelationKind{read(8)};
+        fact.key.target = EntityId{read(8)};
+        fact.present = read(1) != 0;
+        fact.reference = EntityId{read(8)};
+        fact.total = read(8);
+        fact.latent = read(8);
+        const auto length = static_cast<std::size_t>(read(4));
+        if (length != 0) fact.definition = std::make_shared<const std::string>(
+            reinterpret_cast<const char*>(bytes.data() + position), length);
+        position += length;
+        snapshot.knowledge.push_back(std::move(record));
+    }
     const auto status = validate(snapshot, limits);
     if (status != PersistenceStatus::success) {
         return {status, std::nullopt};
@@ -422,6 +521,12 @@ PersistenceStatus Persistence::restore(const CampaignSnapshot& snapshot, WorldSt
         if (catalog->find_by_value(binding.definition_id) == nullptr) {
             return PersistenceStatus::definition_not_found;
         }
+    }
+    for (const auto& record : snapshot.knowledge) {
+        if (!record.fact.definition) continue;
+        if (catalog == nullptr) return PersistenceStatus::catalog_required;
+        if (catalog->find_by_value(record.fact.definition_id()) == nullptr)
+            return PersistenceStatus::definition_not_found;
     }
     WorldState replacement_world{snapshot, catalog};
     RandomStreams replacement_random{snapshot};

@@ -1,6 +1,6 @@
 # CoreRPG — Roadmap vivo: fases, plataformas y Hosts
 
-**Fecha de revisión:** 2026-10-13.  
+**Fecha de revisión:** 2026-10-18.
 **Referencias:** [Arquitectura](architecture.md), [ADR-0001](adr/0001-multi-universe-architecture.md), [ADR-0002](adr/0002-platforms-presentation-companion.md), [4.5 cierre](phases/4.5-generic-world-state.md), [4.6 plan](phases/4.6-rng-rules.md), [RFC iniciativa NPC](proposals/npc-initiative-authority-delegation.md).
 
 Este documento añade **criterios transversales** a la hoja de ruta incremental. No renumera fases ni atribuye al Core capacidades no implementadas. El Core seguirá siendo un único núcleo C++20 independiente de la tecnología de presentación.
@@ -10,7 +10,7 @@ Este documento añade **criterios transversales** a la hoja de ruta incremental.
 - Fases **4.1–4.5 cerradas**. La fase 4.5 (Generic World State) se integró en `main` mediante PR #3, merge `d23c400`, con CI de `main` Windows/MSVC y Linux/GCC superada (run `38365231770`). Véase el [acta 4.5](phases/4.5-generic-world-state.md).
 - **4.6 — RNG + Rules:** fusionada mediante PR #4, merge `8f1cbf72003631706e96ce79100b7dd504268ed0`; CI de `main` Windows/MSVC y Linux/GCC superada ([run 38374915709](https://github.com/robdor80/CoreRPG/actions/runs/38374915709)). Documento histórico en [4.6](phases/4.6-rng-rules.md).
 - **4.7 — Persistence:** integrada mediante PR #5, merge `483ad13ff9d68fc3f23146b4f01e26904d5ac3a9`, CI de main Windows/MSVC y Linux/GCC superada ([38381606241](https://github.com/robdor80/CoreRPG/actions/runs/38381606241)). Evidencias en [4.7](phases/4.7-persistence.md).
-- **4.8 — Entidades/población/relaciones:** implementada en `feat/entities-population`, pendiente de auditoría, integración y CI final de main. Clasificación y garantías en [ADR-0003](adr/0003-generic-population-relations.md) y [Fase 4.8](phases/4.8-entities-population.md).
+- **4.8 — Entidades/población/relaciones:** integrada mediante PR #6, merge `d6e2c8fe5a33405bc41b082cf89d6c8036f3c8b8`. Clasificación y garantías en [ADR-0003](adr/0003-generic-population-relations.md) y [Fase 4.8](phases/4.8-entities-population.md).
 - El estado de una rama no acredita que la fase ya esté fusionada en `main`.
 - Aún no están implementados: registro rico de personajes, horario/estado vivo completo, simulación fuera de escena, almacenamiento físico del Host y migraciones de guardados, autoridad contextual/órdenes ejecutables, módulos de Host, Companion y sus HUD. Los contratos de los juegos no equivalen a una implementación C++ del Core.
 
@@ -19,8 +19,8 @@ Este documento añade **criterios transversales** a la hoja de ruta incremental.
 | Producto | Plataforma | Representación | Interfaz obligatoria |
 | --- | --- | --- | --- |
 | Star Trek | Windows/MSI | UE5, 3D | Teclado/ratón; jugable sin tablet |
-| Nimroel Windows | Windows/MSI | Estrictamente 2D | HUD completo teclado/ratón |
-| Nimroel Android | Android nativo / Galaxy Tab S9+ | Estrictamente 2D | HUD completo táctil, sin MSI ni red |
+| Nimroel Windows | Windows/MSI | Godot, estrictamente 2D | HUD completo teclado/ratón |
+| Nimroel Android | Android ARM64 / Galaxy Tab S9+ | Godot, estrictamente 2D | HUD completo táctil, sin MSI ni red |
 | RobDev Companion | Tablet conectada a juego Windows | UI auxiliar, no videojuego | Opcional, sin autoridad de partida |
 
 **Invariante:** actor UE5 o representación 2D ausente NO significa entidad inexistente. No mantener un segundo WorldState de la campaña en la presentación.
@@ -32,8 +32,8 @@ Este documento añade **criterios transversales** a la hoja de ruta incremental.
 | **4.5 Generic World State** | **CERRADA**, con identidad, revisión, enumeración, contención y tests integrados. Sin Android, UE5, Companion, serialización o modelos de dominio. |
 | **4.6 RNG + Rules** | **FUSIONADA:** ownership de streams RNG y reglas estructurales puras; conserva SplitMix64, sin dependencia gráfica, canon ni ActionEngine 4.10. |
 | **4.7 Persistence** | **FUSIONADA:** identidades, asignador, revisión, vínculos, master seed y streams exactos. Codec v1 y restauración atómica. |
-| **4.8 Entidades/población/relaciones** | **IMPLEMENTADA EN RAMA, PENDIENTE DE REVISIÓN:** reservas agregadas, emisión acotada, origen inmutable, bindings y grafo genérico. Persistencia v2 con lectura v1 intacta. Familias y rango fuera del Core. |
-| **4.9 Knowledge & Visibility** | Proyecciones por observador. Host, Companion y NPC no deben recibir información oculta no autorizada. |
+| **4.8 Entidades/población/relaciones** | **FUSIONADA (PR #6):** reservas agregadas, emisión acotada, origen inmutable, bindings y grafo genérico. Persistencia v2 con lectura v1 intacta. Familias y rango fuera del Core. |
+| **4.9 Knowledge & Visibility** | **IMPLEMENTADA EN RAMA, PENDIENTE DE AUDITORÍA:** recuerdos parciales por observador, proyecciones sin metadatos globales y persistencia v3. Véase [4.9](phases/4.9-knowledge-visibility.md). |
 | **4.10 Actions + Simulation** | Solicitudes estructuradas y resultados validados por autoridad técnica única; simulación off-screen causal. **Después del mínimo funcional**, reevaluar la propuesta de iniciativa, autoridad contextual, compromisos y delegación; no crear segundo ActionEngine. |
 | **4.11 Inspector** | Observación no mutante del estado lógico; diagnóstico para Hosts y validación. |
 | **4.12 Context Builder + AI** | Contextos autorizados; propuestas de IA opcionales sujetas a revalidación; sin mutación directa ni dependencia obligatoria de API remota. |
@@ -50,7 +50,7 @@ No significa que todos los conceptos de las fases posteriores pertenezcan al Cor
 - PR #3 fusionada en `main`, commit `d23c400`; tres incrementos integrados.
 - CI de `main`: Windows/MSVC y Linux/GCC correctas, run `38365231770`.
 - Acta histórica: [4.5 Generic World State](phases/4.5-generic-world-state.md). No confundir persistencia lógica en memoria con guardado en disco.
-- 4.6 y 4.7 se fusionaron después mediante PR #4 y PR #5. Fase actual: **4.8**, rama `feat/entities-population`, pendiente de revisión e integración.
+- 4.6 y 4.7 se fusionaron después mediante PR #4 y PR #5. 4.8 se integró después por PR #6. Fase actual: **4.9**, rama `feat/knowledge-visibility`, pendiente de auditoría e integración.
 
 ### P1 — Prueba Android NDK temprana (imprescindible)
 
@@ -134,4 +134,4 @@ No significa que todos los conceptos de las fases posteriores pertenezcan al Cor
 7. CI Windows/Linux no sustituye las pruebas Android NDK y UE5.
 8. No se reabre 4.5 para introducir redes, UI ni sistemas posteriores.
 
-**Siguiente paso del Core:** auditar 4.8 en su PR Draft y, tras aprobación, integrar y verificar CI de main antes de declarar cierre. 4.9 no está iniciada. P1 Android NDK sigue siendo una verificación independiente.
+**Siguiente paso del Core:** auditar 4.9 en su PR Draft; integración sujeta a decisión humana. No se inicia 4.10. P1 Android NDK sigue siendo una verificación independiente.

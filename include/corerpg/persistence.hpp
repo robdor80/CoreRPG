@@ -16,6 +16,7 @@ namespace corerpg {
 inline constexpr std::uint32_t save_format_version = 1;
 inline constexpr std::uint32_t save_rng_policy = 1;
 inline constexpr std::uint32_t save_format_version_v2 = 2;
+inline constexpr std::uint32_t save_format_version_v3 = 3;
 
 /// Owned canonical text, resolved to a strong DefinitionId against the supplied catalog at load.
 struct DefinitionBindingSnapshot final {
@@ -61,6 +62,7 @@ struct CampaignSnapshot final {
     std::vector<EntityRelation> relations = std::vector<EntityRelation>(0);
     std::vector<PopulationRecord> populations = std::vector<PopulationRecord>(0);
     std::vector<PopulationMembership> population_memberships = std::vector<PopulationMembership>(0);
+    std::vector<KnowledgeRecord> knowledge = std::vector<KnowledgeRecord>(0);
 
     CampaignSnapshot() = default;
     CampaignSnapshot(const CampaignSnapshot&) = default;
@@ -76,6 +78,7 @@ struct CampaignSnapshot final {
         relations.swap(other.relations);
         populations.swap(other.populations);
         population_memberships.swap(other.population_memberships);
+        knowledge.swap(other.knowledge);
     }
     bool operator==(const CampaignSnapshot&) const = default;
 };
@@ -90,6 +93,7 @@ struct PersistenceLimits final {
     std::uint64_t max_populations{1'000'000};
     std::uint64_t max_memberships{1'000'000};
     std::uint64_t max_definition_bytes{4096};
+    std::uint64_t max_knowledge{1'000'000};
 };
 
 enum class PersistenceStatus : std::uint8_t {
@@ -116,6 +120,8 @@ enum class PersistenceStatus : std::uint8_t {
     noncanonical_memberships,
     catalog_required,
     definition_not_found,
+    invalid_knowledge,
+    noncanonical_knowledge,
 };
 
 struct SerializedSnapshot final {
@@ -145,7 +151,7 @@ struct DecodedSnapshot final {
 /// Callers must exclude concurrent mutations throughout capture/restore/load.
 class Persistence final {
   public:
-    /// Chooses v1 only for lossless legacy state, otherwise explicit v2.
+    /// Chooses the minimum lossless format: v1, v2 structural state, v3 knowledge.
     [[nodiscard]] static CampaignSnapshot capture(const WorldState& world,
                                                   const RandomStreams& random);
     [[nodiscard]] static PersistenceStatus validate(const CampaignSnapshot& snapshot,

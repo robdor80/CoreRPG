@@ -1,6 +1,6 @@
 # Formato de guardado CoreRPG v2 — estado estructural 4.8
 
-Contrato implementado en Fase 4.8, pendiente de auditoría e integración.
+Contrato implementado en Fase 4.8 e integrado mediante PR #6 (`d6e2c8f`).
 No modifica [v1](persistence-format-v1.md). La política RNG sigue siendo 1;
 SplitMix64, derivación y mapeo de rangos no cambian.
 
@@ -100,6 +100,9 @@ Además de identidad, contención y RNG de v1:
 La revisión mínima comprueba invariantes, no reconstruye todo el historial.
 El orden de las tablas se rechaza si es no canónico; no se normaliza una entrada
 corrupta o ambigua. Cargar no usa mutaciones ordinarias ni aumenta revisión.
+
+Desde 4.9 también existe [v3](persistence-format-v3.md). Los bytes y la semántica
+v2 permanecen intactos; v2 carga Knowledge vacío y no admite ese campo extendido.
 
 ## Límites, errores y coste
 

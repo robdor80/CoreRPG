@@ -617,9 +617,43 @@ requiere catálogo si hay bindings y prepara ambos valores antes de publicar
 todas las tablas y RNG. No se guarda ni carga contenido externo automáticamente.
 La selección de versiones de packs y generación de arquetipos ricos queda aplazada.
 
-4.8 permanece preparada para revisión; no se han iniciado Knowledge 4.9 ni
-Actions/Simulation 4.10. Familias, rangos, especies y ciudadanía son políticas
+4.8 se integró mediante PR #6, merge `d6e2c8f`. Actions/Simulation 4.10 no se
+ha iniciado. Familias, rangos, especies y ciudadanía son políticas
 externas o candidatos reutilizables que requieren invariantes demostradas.
+
+## Knowledge y Visibility — Fase 4.9
+
+[ADR-0004](adr/0004-observer-knowledge-projections.md) distingue realidad,
+recuerdos persistentes y visibilidad temporal. WorldState posee una tabla
+dispersa ordenada por observador/FactKey. Cada observador es una entidad existente,
+sin conocimiento automático de sí mismo o de otras entidades. El conjunto cerrado
+de hechos comprende existencia, definición, contenedor, relación exacta, reserva
+y origen de población; no añade propiedades ni un motor de percepción.
+
+`learn_fact` registra el valor actual solicitado, incluida ausencia conocida.
+Falta de registro significa desconocido. Los recuerdos no se refrescan por cambios
+del mundo: una relación recordada puede haber dejado de existir. Referencias sólo
+a entidades conocidas para ese observador; revocar existencia retira hechos
+dependientes en una sola revisión. Actualizaciones/no-ops/rechazos mantienen las
+garantías de revisiones y excepción fuerte, sin RNG. Copias comparten únicamente
+texto inmutable, con tablas independientes. Restaurar clona texto del candidato
+para impedir mutaciones por alias conservados por un caller privilegiado.
+
+`Visibility::project` combina recuerdos con concesiones temporales explícitas y
+produce `ObserverView`, un valor de sólo lectura sin acceso al mundo, observadores
+ajenos, contadores globales, revisión global, snapshots ni RNG. Enumera únicamente
+existencias autorizadas; toda búsqueda desconocida retorna nullptr. No distingue
+ID oculto, inválido o inexistente. Una concesión de vínculo no concede sus extremos;
+las existencias correspondientes también deben estar autorizadas. No se filtra la
+realidad oculta al omitir una concesión inválida. No hay herencia social de permisos.
+
+El Host/servicio autentica y fija el observador y las concesiones; no delega el
+builder a clientes. Acceso directo a WorldState o Persistence es privilegiado.
+No se promete aislamiento de código hostil dentro del proceso, ocultación de
+tiempos/asignaciones o anonimización de IDs opacos. Las vistas ya entregadas no
+se revocan retroactivamente. El [codec v3](persistence-format-v3.md) conserva
+recuerdos y ausencia, con carga conjunta atómica de mundo/RNG y compatibilidad
+exacta v1/v2. Proyecciones temporales no forman parte del guardado.
 
 ## Versiones independientes
 
