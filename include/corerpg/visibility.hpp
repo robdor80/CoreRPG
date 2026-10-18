@@ -9,6 +9,35 @@
 namespace corerpg {
 class WorldState;
 
+/// Public data only. Ownership and reference counts of remembered text stay private.
+class VisibleFact final {
+  public:
+    VisibleFact() noexcept = default;
+    VisibleFact(const VisibleFact&) noexcept = default;
+    VisibleFact(VisibleFact&&) noexcept = default;
+    VisibleFact& operator=(const VisibleFact&) noexcept = default;
+    VisibleFact& operator=(VisibleFact&&) noexcept = default;
+    FactKey key;
+    bool present{};
+    EntityId reference;
+    std::uint64_t total{};
+    std::uint64_t latent{};
+    [[nodiscard]] std::string_view definition_id() const noexcept {
+        return definition_ ? std::string_view{*definition_} : std::string_view{};
+    }
+    bool operator==(const VisibleFact& other) const noexcept {
+        return key == other.key && present == other.present && reference == other.reference &&
+               total == other.total && latent == other.latent && definition_id() == other.definition_id();
+    }
+
+  private:
+    friend class Visibility;
+    explicit VisibleFact(const KnownFact& value) noexcept
+        : key{value.key}, present{value.present}, reference{value.reference}, total{value.total},
+          latent{value.latent}, definition_{value.definition} {}
+    std::shared_ptr<const std::string> definition_;
+};
+
 /// Detached read-only value for untrusted consumers. No world/revision/RNG access.
 class ObserverView final {
   public:
@@ -23,17 +52,17 @@ class ObserverView final {
         facts_.swap(other.facts_);
         return *this;
     }
-    [[nodiscard]] std::span<const KnownFact> facts() const noexcept { return facts_; }
+    [[nodiscard]] std::span<const VisibleFact> facts() const noexcept { return facts_; }
     /// Enumerates only explicit known existence records, in increasing opaque ID order.
     [[nodiscard]] std::optional<EntityId> next_entity_id(EntityId after = {}) const noexcept;
-    [[nodiscard]] const KnownFact* find(FactKey key) const noexcept;
+    [[nodiscard]] const VisibleFact* find(FactKey key) const noexcept;
     [[nodiscard]] bool knows(EntityId entity) const noexcept { return find({entity}) != nullptr; }
     bool operator==(const ObserverView& other) const noexcept { return facts_ == other.facts_; }
 
   private:
     friend class Visibility;
     // Count constructor propagates checked-iterator proxy allocation failures on MSVC.
-    std::vector<KnownFact> facts_ = std::vector<KnownFact>(0);
+    std::vector<VisibleFact> facts_ = std::vector<VisibleFact>(0);
 };
 
 class Visibility final {

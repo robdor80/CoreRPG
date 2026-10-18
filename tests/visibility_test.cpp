@@ -2,10 +2,14 @@
 #include <corerpg/persistence.hpp>
 #include "entity_structure_helpers.hpp"
 #include <array>
+#include <type_traits>
 #include <gtest/gtest.h>
 
 namespace {
 using namespace corerpg;
+template <class T> concept ExposesOwnership = requires(const T& value) { value.definition.use_count(); };
+static_assert(!ExposesOwnership<VisibleFact>);
+static_assert(std::is_same_v<decltype(std::declval<const ObserverView&>().facts()), std::span<const VisibleFact>>);
 constexpr EntityId observer{1}, target{2}, hidden{3};
 WorldState fixture() {
     WorldState world;
@@ -100,5 +104,37 @@ TEST(VisibilityTest, DetachedCopiesOutliveRevocationAndWorldDestruction) {
     view = ObserverView{};
     ASSERT_NE(copy.find({target, FactKind::definition}), nullptr);
     EXPECT_EQ(copy.find({target, FactKind::definition})->definition_id(), "example.structural:unit");
+}
+
+TEST(VisibilityTest, ThreeObserversCanDetectIdentifyAndKnowAdditionalFactsIndependently) {
+    // Common contract for an unknown contact, an identified individual, or a collective.
+    auto world = fixture();
+    const auto contact = world.create_entity();
+    const auto collective = world.create_entity();
+    auto catalog = corerpg_test::structural_catalog();
+    ASSERT_EQ(world.bind_definition(contact, *catalog.catalog(), *DefinitionId::parse("example.structural:unit")), DefinitionBindingChange::applied);
+    ASSERT_EQ(world.declare_population(collective, UINT64_MAX), PopulationChange::applied);
+    ASSERT_EQ(world.add_relation({contact, RelationKind{8}, collective}), RelationChange::applied);
+    for (auto who : {observer, target, hidden})
+        ASSERT_EQ(world.learn_fact(who, {contact}), KnowledgeChange::applied);
+    for (auto who : {target, hidden})
+        ASSERT_EQ(world.learn_fact(who, {contact, FactKind::definition}), KnowledgeChange::applied);
+    ASSERT_EQ(world.learn_fact(hidden, {collective}), KnowledgeChange::applied);
+    ASSERT_EQ(world.learn_fact(hidden, {collective, FactKind::population}), KnowledgeChange::applied);
+    const FactKey relation{contact, FactKind::relation, RelationKind{8}, collective};
+    ASSERT_EQ(world.learn_fact(hidden, relation), KnowledgeChange::applied);
+    const auto detected = Visibility::project(world, observer);
+    const auto identified = Visibility::project(world, target);
+    const auto informed = Visibility::project(world, hidden);
+    EXPECT_TRUE(detected.knows(contact));
+    EXPECT_EQ(detected.find({contact, FactKind::definition}), nullptr);
+    EXPECT_FALSE(identified.knows(collective));
+    EXPECT_EQ(identified.find(relation), nullptr);
+    EXPECT_EQ(identified.find({contact, FactKind::definition})->definition_id(), "example.structural:unit");
+    EXPECT_TRUE(informed.find(relation)->present);
+    EXPECT_EQ(informed.find({collective, FactKind::population})->total, UINT64_MAX);
+    ASSERT_EQ(world.revoke_knowledge(hidden), KnowledgeChange::applied);
+    EXPECT_EQ(detected, Visibility::project(world, observer));
+    EXPECT_EQ(identified, Visibility::project(world, target));
 }
 } // namespace

@@ -23,6 +23,13 @@ WorldState::WorldState(const CampaignSnapshot& snapshot, const ContentCatalog* c
         const auto& id = catalog->find_by_value(binding.definition_id)->id();
         definitions_.emplace_back(binding.entity, std::make_shared<const DefinitionId>(id));
     }
+    // A caller-created snapshot may retain a mutable alias to a shared string.
+    // Clone at the trust boundary so it cannot mutate the restored world's memory.
+    for (auto& record : knowledge_) {
+        if (!record.fact.definition) continue;
+        const auto text = record.fact.definition_id();
+        record.fact.definition = std::make_shared<const std::string>(text.data(), text.size());
+    }
 }
 
 RandomStreams::RandomStreams(const CampaignSnapshot& snapshot)

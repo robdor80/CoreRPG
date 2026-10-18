@@ -34,3 +34,39 @@ jobs:
 
       - name: Test
         run: ctest --preset dev
+
+  core-only:
+    name: Core-only Release / ${{ matrix.name }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Windows MSVC
+            os: windows-latest
+          - name: Linux GCC
+            os: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Configure without ContentJson
+        run: cmake -S . -B build/core-only -DBUILD_TESTING=ON -DCORERPG_BUILD_CONTENT_JSON=OFF -DCMAKE_BUILD_TYPE=Release
+      - name: Build
+        run: cmake --build build/core-only --config Release --parallel 2
+      - name: Test
+        run: ctest --test-dir build/core-only -C Release --output-on-failure
+
+  sanitizers:
+    name: Linux GCC / ASan + UBSan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Configure diagnostics without ContentJson
+        run: >-
+          cmake -S . -B build/sanitizers -DBUILD_TESTING=ON
+          -DCORERPG_BUILD_CONTENT_JSON=OFF -DCMAKE_BUILD_TYPE=Debug
+          -DCMAKE_CXX_FLAGS="-fsanitize=address,undefined -fno-omit-frame-pointer"
+          -DCMAKE_EXE_LINKER_FLAGS="-fsanitize=address,undefined"
+      - name: Build
+        run: cmake --build build/sanitizers --parallel 2
+      - name: Test
+        run: ctest --test-dir build/sanitizers --output-on-failure

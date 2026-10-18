@@ -117,11 +117,21 @@ descargue su representación. No se generan nombres, profesiones o biografías.
 Familia, rango y autoridad permanecen fuera del núcleo. El formato
 [v2](docs/persistence-format-v2.md) preserva los datos nuevos; v1 conserva su
 lectura y sus bytes. Los bindings se resuelven contra un catálogo explícito al
-cargar. 4.8 está implementada en `feat/entities-population`, pendiente de
-auditoría e integración.
+cargar. 4.8 se integró mediante PR #6, merge `d6e2c8f`.
+
+La Fase 4.9 añade conocimiento persistente por observador y proyecciones
+filtradas. Conocer una entidad no revela su definición ni sus vínculos.
+`WorldState::learn_fact` recuerda un hecho estructural concreto; `revoke_fact`
+y `revoke_knowledge` retiran recuerdos. `Visibility::project` construye una
+`ObserverView` separada sin revisión ni contadores globales, con concesiones
+temporales explícitas del caller de confianza. Los cambios secretos no
+refrescan recuerdos. El [formato v3](docs/persistence-format-v3.md) guarda
+Knowledge; v1/v2 conservan sus bytes y cargan Knowledge vacío.
+WorldState, Persistence y el builder son APIs privilegiadas: los clientes no
+confiables reciben sólo ObserverView. [Contrato y límites 4.9](docs/phases/4.9-knowledge-visibility.md).
 
 Todavía no hay un estado del mundo genérico completo, un sistema extensible de
-reglas de gameplay, un ActionEngine general, simulación, conocimiento,
+reglas de gameplay, un ActionEngine general, simulación, percepción completa,
 simulación temporal de población, gameplay ni Content Packs reales. Las fases 4.2–4.4 cerraron el
 contenido declarativo y el Core mínimo sin inventar dominio; **4.5 quedó
 fusionada y validada** y aporta los vínculos vivos estructurales. **4.6 está

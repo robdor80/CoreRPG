@@ -4,6 +4,7 @@
 #include "entity_structure_helpers.hpp"
 #include <algorithm>
 #include <array>
+#include <tuple>
 #include <gtest/gtest.h>
 
 namespace {
@@ -159,6 +160,39 @@ TEST(KnowledgePersistenceTest, LimitsAndRevisionExhaustionAreCheckedBeforeMutati
     EXPECT_EQ(Persistence::capture(world, random), s);
 }
 
+TEST(KnowledgePersistenceTest, InvalidPayloadsAndTextLimitsAreRejectedWithoutNormalizing) {
+    auto catalog = corerpg_test::structural_catalog();
+    const auto world = populated_world(*catalog.catalog());
+    const auto original = Persistence::capture(world, RandomStreams{0});
+    for (auto kind : {FactKind::existence, FactKind::definition, FactKind::containment,
+                      FactKind::relation, FactKind::population, FactKind::population_origin}) {
+        auto s = original;
+        const auto it = std::find_if(s.knowledge.begin(), s.knowledge.end(), [kind](const auto& r) {
+            return r.observer == observer && r.fact.key.kind == kind;
+        });
+        ASSERT_NE(it, s.knowledge.end());
+        switch (kind) {
+        case FactKind::existence: it->fact.present = false; break;
+        case FactKind::definition: it->fact.definition = std::make_shared<const std::string>("bad id"); break;
+        case FactKind::containment: it->fact.reference = it->fact.key.subject; break;
+        case FactKind::relation: it->fact.key.relation_kind = {}; break;
+        case FactKind::population: it->fact.latent = it->fact.total + 1; break;
+        case FactKind::population_origin: it->fact.reference = it->fact.key.subject; break;
+        }
+        EXPECT_EQ(Persistence::validate(s), PersistenceStatus::invalid_knowledge) << static_cast<int>(kind);
+    }
+    auto limits = PersistenceLimits{};
+    limits.max_definition_bytes = 1;
+    auto s = original;
+    s.definitions.clear();
+    EXPECT_EQ(Persistence::serialize(s, limits).status, PersistenceStatus::limit_exceeded);
+    const auto bytes = Persistence::serialize(s).bytes;
+    EXPECT_EQ(Persistence::deserialize(bytes, limits).status, PersistenceStatus::limit_exceeded);
+    s = original;
+    s.revision = s.last_entity_id;
+    EXPECT_EQ(Persistence::validate(s), PersistenceStatus::invalid_world);
+}
+
 TEST(KnowledgePersistenceTest, EveryTruncationAndSingleByteCorruptionPreservesDestinations) {
     auto catalog = corerpg_test::structural_catalog();
     auto world = populated_world(*catalog.catalog());
@@ -201,6 +235,21 @@ TEST(KnowledgePersistenceTest, MissingCatalogForRememberedDefinitionIsAtomic) {
     const auto empty = ContentCatalog::create({});
     EXPECT_EQ(Persistence::restore(s, world, random, {}, empty.catalog()), PersistenceStatus::definition_not_found);
     EXPECT_EQ(Persistence::capture(world, random), original);
+}
+
+TEST(KnowledgePersistenceTest, RestoringClonesCallerOwnedMutableStringAliases) {
+    auto catalog = corerpg_test::structural_catalog();
+    auto world = populated_world(*catalog.catalog());
+    RandomStreams random{12};
+    auto snapshot = Persistence::capture(world, random);
+    auto alias = std::make_shared<std::string>("example.structural:unit");
+    for (auto& record : snapshot.knowledge)
+        if (record.fact.key.kind == FactKind::definition && record.fact.present) record.fact.definition = alias;
+    ASSERT_EQ(Persistence::restore(snapshot, world, random, {}, catalog.catalog()), PersistenceStatus::success);
+    const auto before = Persistence::capture(world, random);
+    *alias = "changed.after:restore";
+    EXPECT_EQ(Persistence::capture(world, random), before);
+    EXPECT_EQ(Visibility::project(world, observer).find({subject, FactKind::definition})->definition_id(), "example.structural:unit");
 }
 
 TEST(KnowledgePersistenceTest, ContinuityPreservesRngAndBothObserversOverOneHundredSteps) {

@@ -7,7 +7,7 @@
 
 namespace corerpg {
 
-const KnownFact* ObserverView::find(FactKey key) const noexcept {
+const VisibleFact* ObserverView::find(FactKey key) const noexcept {
     const auto it = std::lower_bound(facts_.begin(), facts_.end(), key,
         [](const auto& fact, FactKey value) { return fact.key < value; });
     return it != facts_.end() && it->key == key ? &*it : nullptr;
@@ -27,12 +27,13 @@ ObserverView Visibility::project(const WorldState& world, EntityId observer,
     if (!world.contains(observer)) return view;
     const auto records = world.knowledge_of(observer);
     view.facts_.reserve(records.size());
-    for (const auto& record : records) view.facts_.push_back(record.fact);
+    for (const auto& record : records) view.facts_.push_back(VisibleFact{record.fact});
     const auto put = [&](KnownFact fact) {
+        VisibleFact visible{fact};
         const auto it = std::lower_bound(view.facts_.begin(), view.facts_.end(), fact.key,
             [](const auto& value, FactKey key) { return value.key < key; });
-        if (it != view.facts_.end() && it->key == fact.key) *it = std::move(fact);
-        else view.facts_.insert(it, std::move(fact));
+        if (it != view.facts_.end() && it->key == fact.key) *it = std::move(visible);
+        else view.facts_.insert(it, std::move(visible));
     };
     // Authorize explicit existence first, independently of grant order.
     for (const auto key : temporary_grants) {

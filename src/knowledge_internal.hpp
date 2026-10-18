@@ -4,7 +4,7 @@
 #include <corerpg/world_state.hpp>
 
 #include <algorithm>
-#include <tuple>
+#include <utility>
 
 namespace corerpg::detail {
 

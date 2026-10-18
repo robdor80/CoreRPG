@@ -100,6 +100,17 @@ elseif(CMAKE_CXX_COMPILER_ID MATCHES "Clang|GNU")
 endif()
 gtest_discover_tests(corerpg_entity_structure_allocation_tests)
 
+add_executable(corerpg_knowledge_allocation_tests knowledge_allocation_test.cpp)
+target_link_libraries(corerpg_knowledge_allocation_tests PRIVATE CoreRPG::CoreRPG GTest::gtest_main)
+set_target_properties(corerpg_knowledge_allocation_tests
+    PROPERTIES CXX_STANDARD 20 CXX_STANDARD_REQUIRED YES CXX_EXTENSIONS NO)
+if(MSVC)
+    target_compile_options(corerpg_knowledge_allocation_tests PRIVATE /W4 /permissive-)
+elseif(CMAKE_CXX_COMPILER_ID MATCHES "Clang|GNU")
+    target_compile_options(corerpg_knowledge_allocation_tests PRIVATE -Wall -Wextra -Wpedantic)
+endif()
+gtest_discover_tests(corerpg_knowledge_allocation_tests)
+
 if(CORERPG_BUILD_CONTENT_JSON)
     add_executable(
         corerpg_content_json_tests
