@@ -219,4 +219,3 @@ TEST_F(KnowledgeAllocationTest, QueriesNoOpsAndRevocationNeedNoAllocationOrRng) 
     EXPECT_EQ(source.revision(), original.revision + 1);
 }
 } // namespace
-
