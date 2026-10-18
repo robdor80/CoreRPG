@@ -15,6 +15,7 @@ FetchContent_MakeAvailable(googletest)
 
 add_executable(
     corerpg_tests
+    action_test.cpp
     content_compatibility_test.cpp
     content_catalog_test.cpp
     content_pack_validation_test.cpp
