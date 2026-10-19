@@ -31,6 +31,7 @@ add_executable(
     knowledge_persistence_test.cpp
     visibility_test.cpp
     context_builder_test.cpp
+    context_security_test.cpp
     population_test.cpp
     population_persistence_test.cpp
     persistence_test.cpp
@@ -188,3 +189,15 @@ target_link_libraries(corerpg_context_host_example PRIVATE CoreRPG::CoreRPG)
 set_target_properties(corerpg_context_host_example
     PROPERTIES CXX_STANDARD 20 CXX_STANDARD_REQUIRED YES CXX_EXTENSIONS NO)
 add_test(NAME ContextHostExample COMMAND corerpg_context_host_example)
+
+# Isolated global allocation instrumentation for the entire authorized pipeline.
+add_executable(corerpg_context_allocation_tests context_allocation_test.cpp)
+target_link_libraries(corerpg_context_allocation_tests PRIVATE CoreRPG::CoreRPG GTest::gtest_main)
+set_target_properties(corerpg_context_allocation_tests
+    PROPERTIES CXX_STANDARD 20 CXX_STANDARD_REQUIRED YES CXX_EXTENSIONS NO)
+if(MSVC)
+    target_compile_options(corerpg_context_allocation_tests PRIVATE /W4 /permissive-)
+elseif(CMAKE_CXX_COMPILER_ID MATCHES "Clang|GNU")
+    target_compile_options(corerpg_context_allocation_tests PRIVATE -Wall -Wextra -Wpedantic)
+endif()
+gtest_discover_tests(corerpg_context_allocation_tests)
