@@ -201,3 +201,36 @@ elseif(CMAKE_CXX_COMPILER_ID MATCHES "Clang|GNU")
     target_compile_options(corerpg_context_allocation_tests PRIVATE -Wall -Wextra -Wpedantic)
 endif()
 gtest_discover_tests(corerpg_context_allocation_tests)
+
+# Optional, offline cross-repository test. Production libraries never fetch a game.
+set(CORERPG_NIMROEL_SOURCE_DIR "" CACHE PATH "Pinned Nimroel checkout for 4.13 integration tests")
+if(CORERPG_NIMROEL_SOURCE_DIR)
+    if(NOT CORERPG_BUILD_CONTENT_JSON)
+        message(FATAL_ERROR "Nimroel integration requires the optional ContentJson target")
+    endif()
+    find_package(Python3 REQUIRED COMPONENTS Interpreter)
+    set(nimroel_pack "${CORERPG_NIMROEL_SOURCE_DIR}/ContentPacks/treskal-villages/pack")
+    set(nimroel_validator "${CORERPG_NIMROEL_SOURCE_DIR}/Tools/CoreRPG413/validate.py")
+    execute_process(COMMAND "${Python3_EXECUTABLE}" "${nimroel_validator}"
+        --core-root "${PROJECT_SOURCE_DIR}" --source-root "${CORERPG_NIMROEL_SOURCE_DIR}"
+        --pack "${nimroel_pack}" RESULT_VARIABLE nimroel_validation)
+    if(NOT nimroel_validation EQUAL 0)
+        message(FATAL_ERROR "Nimroel source/release preflight failed")
+    endif()
+    add_test(NAME NimroelReleasePreflight COMMAND "${Python3_EXECUTABLE}" "${nimroel_validator}"
+        --core-root "${PROJECT_SOURCE_DIR}" --source-root "${CORERPG_NIMROEL_SOURCE_DIR}"
+        --pack "${nimroel_pack}")
+    set_tests_properties(NimroelReleasePreflight PROPERTIES FIXTURES_SETUP nimroel_release)
+    add_executable(corerpg_nimroel_integration_tests nimroel_content_pack_test.cpp)
+    target_link_libraries(corerpg_nimroel_integration_tests
+        PRIVATE CoreRPG::ContentJson GTest::gtest_main jsoncons)
+    target_compile_features(corerpg_nimroel_integration_tests PRIVATE cxx_std_20)
+    target_compile_definitions(corerpg_nimroel_integration_tests
+        PRIVATE CORERPG_NIMROEL_PACK_DIR="${nimroel_pack}")
+    if(MSVC)
+        target_compile_options(corerpg_nimroel_integration_tests PRIVATE /W4 /permissive-)
+    else()
+        target_compile_options(corerpg_nimroel_integration_tests PRIVATE -Wall -Wextra -Wpedantic)
+    endif()
+    gtest_discover_tests(corerpg_nimroel_integration_tests PROPERTIES FIXTURES_REQUIRED nimroel_release)
+endif()
