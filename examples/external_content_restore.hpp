@@ -34,14 +34,16 @@ inline bool valid_digest(const std::string& value) noexcept {
     });
 }
 
-inline bool valid_metadata(const ExternalSaveMetadata& value) {
+inline bool valid_metadata(const ExternalSaveMetadata& value) noexcept {
     if (value.format_version != 1 || value.releases.empty() || value.releases.size() > 128 ||
         !valid_digest(value.generation_context_sha256)) return false;
     std::string_view previous;
     for (const auto& release : value.releases) {
-        if (release.pack_id.size() > 4096 || release.pack_version.size() > 128 ||
-            !corerpg::PackId::parse(release.pack_id) ||
-            !corerpg::SemanticVersion::parse(release.pack_version) ||
+        // installed came from the real manifest decoder/catalog preflight. Saved
+        // text must equal it exactly below. Reconstructing owning strong IDs here
+        // adds no validation and introduces unnecessary allocation/move failures.
+        if (release.pack_id.empty() || release.pack_id.size() > 4096 ||
+            release.pack_version.empty() || release.pack_version.size() > 128 ||
             !valid_digest(release.definition_set_sha256) || !valid_digest(release.release_sha256) ||
             release.pack_id <= previous) return false;
         previous = release.pack_id;

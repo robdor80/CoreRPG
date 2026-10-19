@@ -39,7 +39,9 @@ neutral del adaptador**, no nueva API del Core ni un sistema de mods. El caller
 aporta `installed` desde un bundle ya verificado y el catálogo que se construyó
 con él. La función no descarga/hashea archivos, autentica publicadores ni traduce
 metadatos desde JSON; esos pasos son del Host. La validación propia del ejemplo
-limita a 128 packs y textos de identificación antes de usar los parsers existentes.
+limita a 128 packs y textos de identificación; no reconstruye tipos poseídos.
+La gramática y tipos fuertes se validan en el decoder/catálogo del preflight.
+Comparar metadatos ya verificados no asigna memoria ni añade otra autoridad.
 Estos límites son recursos técnicos, no reglas de juego.
 
 Las dos pruebas neutrales se ejecutan con ContentJson desactivado; comprueban que
