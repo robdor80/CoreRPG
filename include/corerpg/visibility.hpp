@@ -9,6 +9,9 @@
 namespace corerpg {
 class WorldState;
 
+/// Provenance available at projection time, not an acquisition timestamp/source.
+enum class FactProvenance : std::uint8_t { remembered, temporary_grant };
+
 /// Public data only. Ownership and reference counts of remembered text stay private.
 class VisibleFact final {
   public:
@@ -25,17 +28,21 @@ class VisibleFact final {
     [[nodiscard]] std::string_view definition_id() const noexcept {
         return definition_ ? std::string_view{*definition_} : std::string_view{};
     }
+    /// A grant was current when projected; detached copies do not refresh.
+    [[nodiscard]] FactProvenance provenance() const noexcept { return provenance_; }
     bool operator==(const VisibleFact& other) const noexcept {
         return key == other.key && present == other.present && reference == other.reference &&
-               total == other.total && latent == other.latent && definition_id() == other.definition_id();
+               total == other.total && latent == other.latent && definition_id() == other.definition_id() &&
+               provenance_ == other.provenance_;
     }
 
   private:
     friend class Visibility;
-    explicit VisibleFact(const KnownFact& value) noexcept
+    explicit VisibleFact(const KnownFact& value, FactProvenance provenance) noexcept
         : key{value.key}, present{value.present}, reference{value.reference}, total{value.total},
-          latent{value.latent}, definition_{value.definition} {}
+          latent{value.latent}, definition_{value.definition}, provenance_{provenance} {}
     std::shared_ptr<const std::string> definition_;
+    FactProvenance provenance_{FactProvenance::remembered};
 };
 
 /// Detached read-only value for untrusted consumers. No world/revision/RNG access.

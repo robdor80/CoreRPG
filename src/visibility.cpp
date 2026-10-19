@@ -27,9 +27,9 @@ ObserverView Visibility::project(const WorldState& world, EntityId observer,
     if (!world.contains(observer)) return view;
     const auto records = world.knowledge_of(observer);
     view.facts_.reserve(records.size());
-    for (const auto& record : records) view.facts_.push_back(VisibleFact{record.fact});
+    for (const auto& record : records) view.facts_.push_back(VisibleFact{record.fact, FactProvenance::remembered});
     const auto put = [&](KnownFact fact) {
-        VisibleFact visible{fact};
+        VisibleFact visible{fact, FactProvenance::temporary_grant};
         const auto it = std::lower_bound(view.facts_.begin(), view.facts_.end(), fact.key,
             [](const auto& value, FactKey key) { return value.key < key; });
         if (it != view.facts_.end() && it->key == fact.key) *it = std::move(visible);

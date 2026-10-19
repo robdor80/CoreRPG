@@ -34,6 +34,7 @@ target_sources(
         src/inspector.cpp
         src/knowledge.cpp
         src/visibility.cpp
+        src/context_builder.cpp
         src/population.cpp
         src/semantic_version.cpp
         src/simulation.cpp
@@ -64,6 +65,7 @@ target_sources(
             include/corerpg/inspector.hpp
             include/corerpg/knowledge.hpp
             include/corerpg/visibility.hpp
+            include/corerpg/context_builder.hpp
             include/corerpg/pack_dependency.hpp
             include/corerpg/pack_id.hpp
             include/corerpg/persistence.hpp
