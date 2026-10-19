@@ -84,6 +84,8 @@ TEST(VisibilityTest, MemoriesOnlyRefreshWithExplicitAuthorization) {
     const std::array grants{key};
     const auto temporary = Visibility::project(world, observer, grants);
     EXPECT_EQ(temporary.find(key)->total, 99U);
+    EXPECT_EQ(temporary.find(key)->provenance(), FactProvenance::temporary_grant);
+    EXPECT_EQ(before.find(key)->provenance(), FactProvenance::remembered);
     EXPECT_EQ(before, Visibility::project(world, observer));
     EXPECT_FALSE(before.find(key)->present);
 }
@@ -137,4 +139,26 @@ TEST(VisibilityTest, ThreeObserversCanDetectIdentifyAndKnowAdditionalFactsIndepe
     EXPECT_EQ(detected, Visibility::project(world, observer));
     EXPECT_EQ(identified, Visibility::project(world, target));
 }
+TEST(VisibilityTest, ProvenanceDistinguishesEqualCurrentGrantsFromPersistedMemories) {
+    auto world = fixture();
+    ASSERT_EQ(world.learn_fact(observer, {target}), KnowledgeChange::applied);
+    const FactKey key{target, FactKind::population};
+    ASSERT_EQ(world.learn_fact(observer, key), KnowledgeChange::applied);
+    const auto before = Persistence::capture(world, RandomStreams{92});
+    const auto memory = Visibility::project(world, observer);
+    const std::array grants{key, key};
+    auto current = Visibility::project(world, observer, grants);
+    ASSERT_NE(current.find(key), nullptr);
+    EXPECT_FALSE(current.find(key)->present); // Same known absence, different origin.
+    EXPECT_EQ(memory.find(key)->provenance(), FactProvenance::remembered);
+    EXPECT_EQ(current.find(key)->provenance(), FactProvenance::temporary_grant);
+    EXPECT_NE(memory, current);
+    EXPECT_EQ(current.find({target})->provenance(), FactProvenance::remembered);
+    auto copy = current;
+    current = ObserverView{};
+    EXPECT_EQ(copy.find(key)->provenance(), FactProvenance::temporary_grant);
+    EXPECT_EQ(Visibility::project(world, observer), memory);
+    EXPECT_EQ(Persistence::capture(world, RandomStreams{92}), before);
+}
+
 } // namespace
