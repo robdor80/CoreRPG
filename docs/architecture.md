@@ -1131,3 +1131,13 @@ El contenido tipado de dominio se introducirá cuando exista un primer modelo
 concreto validado y un consumidor real. En ese momento se decidirá si encaja en
 una fase existente o si exige un ajuste explícito del roadmap; no se reserva
 ahora un número nuevo.
+
+## Primer consumidor de contenido real (4.13)
+
+El pack canónico aldeano V1 reside en Videojuego_Nimroel, con un perfil específico
+versionado y trazable fuera del envelope 0.1.0. La integración de pruebas externa
+construye un catálogo y después usa las APIs estructurales existentes; cargar
+definiciones no crea mundo. Ningún tipo/regla de aldea entra en src/include del
+Core. Metadatos y comprobación de versiones/huellas previos a load pertenecen al
+adaptador, según [compatibilidad externa](external-content-compatibility.md).
+La evidencia y límites de generación/Host están en el [acta 4.13](phases/4.13-nimroel-content-pack.md).
