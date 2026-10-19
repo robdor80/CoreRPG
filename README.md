@@ -174,9 +174,24 @@ scratch acotado y comunicar resultados inconclusos por recursos.
 e IA**: no enviarles Inspector, ActionResult ni informes técnicos, tampoco en
 prompts. Véanse [contrato/ejemplo 4.11](docs/phases/4.11-inspector.md) y
 [ADR-0006](docs/adr/0006-privileged-read-only-inspector.md).
-4.11 está preparada para auditoría; su aprobación y fusión corresponden al propietario.
-Context Builder/AI 4.12, historial/replay, modelos de gameplay, agendas,
-Android ARM64 nativo y puentes UE5/Godot siguen pendientes.
+4.11 está fusionada mediante PR #9 (`4bda9d3`), con cinco jobs de main correctos.
+
+4.12 incorpora `ContextBuilder::build`: selección C++ tipada de una `ObserverView`
+const, sin acceso al mundo, asignaciones ni RNG. Filtros por sujeto/tipo, orden
+canónico y presupuestos explícitos de examen, selección, capacidad y contenido.
+El Host aporta almacenamiento y consume sólo el prefijo `emitted` y su estado;
+truncamiento nunca implica contexto completo. `VisibleFact::provenance()` distingue
+recuerdo y concesión temporal actual al proyectar, manteniendo ausencia conocida.
+Las copias conservan su texto; retirar permisos no revoca copias ya entregadas.
+La ampliación exige recompilar consumidores C++ (no hay ABI estable); persistencia
+v1/v2/v3 permanece intacta. El coste previo de Visibility no queda limitado por
+ContextBuilder. [Contrato y medidas 4.12](docs/phases/4.12-context-builder-ai.md),
+[ADR-0007](docs/adr/0007-authorized-context-builder-ai.md) y
+[frontera/ejemplo de Host](docs/ai-host-boundary.md).
+
+4.12 se entrega para auditoría humana mediante PR Draft; no se declara cerrada.
+No se incluyen proveedores, memoria episódica, permisos de dominio ni narrativa.
+Android ARM64 nativo, prueba física Tab S9+ y puentes UE5/GDExtension siguen pendientes.
 
 ## Compilación
 
@@ -215,4 +230,4 @@ adoptada antes de la fase 4.5 se documenta de forma normativa en
 su decisión arquitectónica se registra en
 [`docs/adr/0001-multi-universe-architecture.md`](docs/adr/0001-multi-universe-architecture.md).
 
-Documentación de etapas: [cierre 4.5](docs/phases/4.5-generic-world-state.md) · [historia 4.6](docs/phases/4.6-rng-rules.md) · [4.7 Persistence](docs/phases/4.7-persistence.md) · [4.8 entidades/población](docs/phases/4.8-entities-population.md) · [4.9 Knowledge](docs/phases/4.9-knowledge-visibility.md) · [4.10 Actions/Simulation](docs/phases/4.10-actions-simulation.md) · [4.11 Inspector](docs/phases/4.11-inspector.md) · [roadmap](docs/roadmap.md).
+Documentación de etapas: [cierre 4.5](docs/phases/4.5-generic-world-state.md) · [historia 4.6](docs/phases/4.6-rng-rules.md) · [4.7 Persistence](docs/phases/4.7-persistence.md) · [4.8 entidades/población](docs/phases/4.8-entities-population.md) · [4.9 Knowledge](docs/phases/4.9-knowledge-visibility.md) · [4.10 Actions/Simulation](docs/phases/4.10-actions-simulation.md) · [4.11 Inspector](docs/phases/4.11-inspector.md) · [4.12 Context Builder/AI](docs/phases/4.12-context-builder-ai.md) · [roadmap](docs/roadmap.md).

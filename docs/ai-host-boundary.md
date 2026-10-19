@@ -11,7 +11,7 @@ actor y debe sustituirse por las autorizaciones del juego en una integración.
 
 1. Host autentica destinatario y decide permisos y grants; sólo él usa Visibility.
 2. ContextBuilder recibe la vista const y filtros exactos; el caller aporta buffer.
-3. Consumir **únicamente** `storage.first(result.emitted)` junto a
+3. Consumir **únicamente** `std::span{storage}.first(result.emitted)` junto a
    `result.contract_version` y `result.status`. La cola puede contener valores
    de una llamada anterior. Estado distinto de complete no certifica cobertura.
 4. El Host serializa campos lógicos por nombre/tipo, nunca `memcpy` de objetos

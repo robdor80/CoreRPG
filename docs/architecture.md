@@ -195,10 +195,11 @@ mecánicas de superficie sean radicalmente distintas.
 
 ## Integración con IA
 
-CoreRPG podrá incorporar en el futuro un Context Builder que produzca vistas
-estructuradas y controladas del estado. Esto permitirá que un Host proporcione a
-una IA únicamente la información que un personaje, narrador o sistema pueda
-conocer.
+4.12 incorpora ContextBuilder para seleccionar exclusivamente hechos de una
+ObserverView autorizada, nunca del mundo privilegiado. El Host sólo proporciona
+al proveedor ese contexto y ampliaciones narrativas autorizadas con igual frontera.
+Contrato [ADR-0007](adr/0007-authorized-context-builder-ai.md) y
+[frontera de Host](ai-host-boundary.md).
 
 CoreRPG no realizará:
 
@@ -735,7 +736,46 @@ el Host; no se añaden logs, replay ni persistencia de resultados.
 e IA.** Nunca entregar Inspector, informes o resultados privilegiados a UI jugable
 o prompts. La frontera C++ presupone Host confiable; no aísla código hostil dentro
 del proceso. Sensores, permisos institucionales y confidencias siguen en los juegos.
-Context Builder 4.12, integración nativa y modelos de dominio siguen pendientes.
+4.11 se fusionó por PR #9 (`4bda9d3`), CI #86 cinco trabajos correctos.
+Integración nativa y modelos de dominio siguen pendientes.
+
+## Context Builder — Fase 4.12
+
+API pública en `context_builder.hpp`. Recibe exclusivamente ObserverView const,
+solicitud versionada con filtros exactos de sujeto/tipo, span de salida del caller
+y presupuestos. No conoce WorldState, Inspector, snapshots, catálogos, resultados
+privilegiados ni RNG. Recorre facts() en orden FactKey y copia sólo coincidencias;
+no deriva campos nuevos ni interpreta lenguaje. Resultado escalar con versión,
+estado, examinados, emitidos y bytes lógicos. El Host conserva el buffer y entrega
+sólo el prefijo emitido, nunca la cola residual. Sus VisibleFact retienen texto
+inmutable aunque muera la vista; ninguna copia se refresca o revoca automáticamente.
+
+Máximos de contrato: 65.536 examinados, 256 seleccionados y 1 MiB de contenido;
+valores mayores se rechazan. Por defecto 4.096, 128 y 65.536 bytes. Cero válido,
+truncamientos explícitos, orden/precedencia estables y sin desbordar sumas. La
+capacidad del span limita el buffer; scratch dinámico cero y trabajo constante
+por registro examinado. Los bytes lógicos son 59 por hecho más longitud de
+identificador de definición, no RAM total, JSON o tokens del proveedor.
+Visibility ya materializa todos los recuerdos y grants antes de seleccionar;
+ese coste no está acotado por ContextLimits. Análisis y medidas separados en
+[acta 4.12](phases/4.12-context-builder-ai.md).
+
+VisibleFact amplía su contrato con FactProvenance y provenance(): remembered o
+temporary_grant (actual cuando se proyectó). Su igualdad compara procedencia;
+ABI/layout cambia y exige recompilar, firmas anteriores se conservan. KnownFact,
+Knowledge y persistencia v1/v2/v3 no cambian. present=false indica ausencia
+conocida, falta en la vista indica desconocido; falta en el subconjunto puede
+ser filtro/truncamiento y no acredita ausencia. No se inventan fuentes históricas,
+fechas, precisión, rumores, personalidad o memoria episódica.
+
+La IA propone entrada no confiable. El Host valida esquema/límites, autentica,
+autoriza por juego y comprueba sesión/vigencia/deduplicación; ActionEngine revalida
+estado/referencias/checks para sus operaciones existentes. Revisión idéntica no
+identifica campaña tras restore. No hay ejecutor alternativo ni cliente remoto.
+Textos externos son datos separados de instrucciones; los prompts no eliminan
+inyección. Secretos/clasificación requieren filtrado del Host también en sus
+ampliaciones; Inspector nunca es fuente de contexto jugable. Esta fase queda
+pendiente de auditoría humana; no inicia 4.13.
 
 ## Versiones independientes
 
@@ -747,6 +787,8 @@ CoreRPG mantendrá separados cuatro ejes de evolución:
 - `pack_version`: versión de un Content Pack concreto;
 - `save_format_version`: versión del formato de estado persistido.
 
+Además, `context_contract_version` versiona la selección/contabilidad del DTO
+reconstruible de contexto; no es formato de guardado ni ABI estable.
 Una actualización del Core no implica necesariamente cambiar los otros tres
 ejes. Cada contrato define su propia política de compatibilidad y los mecanismos
 de migración sólo se introducirán cuando sean necesarios.

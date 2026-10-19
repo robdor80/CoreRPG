@@ -105,3 +105,23 @@ sólo evidencia de necesidad justificará una API incremental posterior.
 
 No se añade cliente remoto, ejecutor, propuesta universal, motor narrativo,
 memoria, tokens universales, versión de snapshot o integración UE5/Godot/Android.
+
+## Evidencia de implementación para auditoría
+
+El contrato versión 1 se materializa en `context_builder.hpp` y su algoritmo sólo
+incluye ese header y type_traits: ninguna consulta privilegiada ni callback.
+Salida en almacenamiento del caller, sin asignaciones, con máximos 65.536/256/1 MiB.
+La falta de scratch dinámico permite límite fijo cero; no se inventa infraestructura
+ni parámetro para memoria auxiliar inexistente. No hubo desviación de D1–D4.
+
+Pruebas locales Linux x86_64: 428/428 con ContentJson, 319/319 Core-only Release y
+319/319 ASan/UBSan; biblioteca sin tests/JSON compilada sin terceros. Cuatro puntos
+de asignación de proyección inyectados en esta STL; selección funciona con new
+fallando. Se comparan mundos ocultos distintos/vistas iguales, restauraciones,
+observadores, permisos/grants, extremos, capacidades y máximos. Medidas separadas
+confirman que la proyección sigue pagando O(K) antes del presupuesto de selección.
+
+Ver [acta 4.12](../phases/4.12-context-builder-ai.md) para métodos/limitaciones y
+[frontera de IA](../ai-host-boundary.md) para responsabilidad del Host. El estado
+final de CI Windows/Linux se verifica por SHA en la PR Draft; no hay validación
+NDK/ARM64 ni hardware Android, puente de motor o proveedor real en esta fase.

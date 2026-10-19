@@ -14,7 +14,7 @@ int main() {
     std::array<VisibleFact, 8> storage;
     const auto context = ContextBuilder::build(view, {}, storage);
     if (context.status != ContextStatus::complete || context.emitted != 2) return 2;
-    // Host adapter would serialize version/status and storage.first(emitted),
+    // Host adapter serializes version/status and std::span{storage}.first(context.emitted),
     // filter classification and apply its own byte/token limit. No remote call.
     const example_host::AuthenticatedSession session{actor, 1, true};
     const example_host::IssuedContext issued{7, session.epoch, actor, world.revision()};
