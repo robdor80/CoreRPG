@@ -181,3 +181,10 @@ elseif(CMAKE_CXX_COMPILER_ID MATCHES "Clang|GNU")
     target_compile_options(corerpg_inspector_allocation_tests PRIVATE -Wall -Wextra -Wpedantic)
 endif()
 gtest_discover_tests(corerpg_inspector_allocation_tests)
+
+# Compile and execute the neutral Host example in every existing CI configuration.
+add_executable(corerpg_context_host_example ../examples/authorized_context_host.cpp)
+target_link_libraries(corerpg_context_host_example PRIVATE CoreRPG::CoreRPG)
+set_target_properties(corerpg_context_host_example
+    PROPERTIES CXX_STANDARD 20 CXX_STANDARD_REQUIRED YES CXX_EXTENSIONS NO)
+add_test(NAME ContextHostExample COMMAND corerpg_context_host_example)
