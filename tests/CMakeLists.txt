@@ -30,6 +30,7 @@ add_executable(
     knowledge_test.cpp
     knowledge_persistence_test.cpp
     visibility_test.cpp
+    context_builder_test.cpp
     population_test.cpp
     population_persistence_test.cpp
     persistence_test.cpp
