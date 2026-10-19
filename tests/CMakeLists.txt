@@ -25,6 +25,7 @@ add_executable(
     content_id_test.cpp
     entity_structure_test.cpp
     inspector_diagnostic_test.cpp
+    inspector_integration_test.cpp
     inspector_test.cpp
     knowledge_test.cpp
     knowledge_persistence_test.cpp
