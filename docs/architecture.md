@@ -709,8 +709,33 @@ Las tablas siguen teniendo sus costes lineales/logarítmicos existentes; process
 no copia el mundo y step no reserva resultados. La unidad de presupuesto es la
 solicitud y sus checks, no bytes del mundo, NPC deliberados o tiempo real.
 No hay soporte concurrente. Tareas, órdenes, compromisos, delegación y generación
-de intenciones del RFC permanecen aplazados tras probar el mínimo. No se inicia
+de intenciones del RFC permanecen aplazados tras probar el mínimo. 4.10 no inició
 Inspector, Context Builder, red, IA o integración UE5/Godot/Android.
+
+## Inspector — Fase 4.11
+
+[ADR-0006](adr/0006-privileged-read-only-inspector.md) y
+[contrato/ejemplo](phases/4.11-inspector.md). Inspector observa el WorldState
+canónico desde herramientas técnicas privilegiadas; no toma decisiones ni concede
+autorizaciones. Consultas noexcept sin asignar memoria: metadatos, entidades,
+definiciones en catálogo explícito, contención, relaciones dirigidas/tipadas,
+reservas, origen y recuerdos. Colecciones prestadas con offsets y límites 1–256.
+El Host mantiene mundo/catálogo vivos, excluye mutaciones concurrentes durante
+uso y descarta préstamos antes de mutar/reemplazar. Revisión esperada rechaza
+páginas obsoletas dentro de una sesión; no detecta reemplazos con igual revisión.
+
+El diagnóstico comparte las invariantes de Persistence mediante adaptadores
+prestados, sin capturar todo el mundo. Primer fallo estructurado, scratch
+limitado explícitamente y resultados inconclusos por falta de recursos. Recuerdo
+desactualizado no equivale a corrupción. No se cambia persistencia ni simulación.
+ActionResult ya es un valor técnico suficiente, conservado explícitamente por
+el Host; no se añaden logs, replay ni persistencia de resultados.
+
+**ObserverView sigue siendo la única vía autorizada hacia jugadores, NPC, diálogo
+e IA.** Nunca entregar Inspector, informes o resultados privilegiados a UI jugable
+o prompts. La frontera C++ presupone Host confiable; no aísla código hostil dentro
+del proceso. Sensores, permisos institucionales y confidencias siguen en los juegos.
+Context Builder 4.12, integración nativa y modelos de dominio siguen pendientes.
 
 ## Versiones independientes
 

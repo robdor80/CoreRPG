@@ -86,9 +86,7 @@ InspectionPage<KnowledgeRecord> Inspector::knowledge(EntityId observer, Inspecti
     return page<KnowledgeRecord>(world_.knowledge_of(observer), world_.revision(), request,
                                  world_.contains(observer));
 }
-} // namespace corerpg
 
-namespace corerpg {
 namespace {
 template <class State>
 bool diagnostic_budget(const State& state, InspectionDiagnosticLimits limits) noexcept {

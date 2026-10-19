@@ -1,6 +1,6 @@
 # ADR-0006 — Inspector técnico privilegiado de solo lectura
 
-- Estado: propuesta implementable para 4.11; pendiente de auditoría humana.
+- Estado: implementada en rama para 4.11; pendiente de auditoría humana.
 - Fecha: 2026-10-19.
 - Base: `7d497b99802773cbb46c06eaee71a2892b772a05`, PR #8 fusionada.
 

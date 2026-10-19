@@ -11,6 +11,14 @@ namespace {
 using namespace corerpg;
 constexpr EntityId actor{1}, unit{2}, old_container{3}, destination{4}, secret{5}, observer{6}, other{7}, group{8};
 constexpr RelationKind secret_kind{17};
+template <class T> concept HasInspectorMetadata = requires(const T& value) { value.metadata(); };
+template <class T> concept HasWorldRevision = requires(const T& value) { value.revision(); };
+template <class T> concept HasPrivilegedRelations = requires(const T& value) { value.relations(); };
+template <class T> concept HasPrivilegedKnowledge = requires(const T& value) { value.knowledge(observer); };
+static_assert(!HasInspectorMetadata<ObserverView>);
+static_assert(!HasWorldRevision<ObserverView>);
+static_assert(!HasPrivilegedRelations<ObserverView>);
+static_assert(!HasPrivilegedKnowledge<ObserverView>);
 static_assert(!std::is_convertible_v<Inspector, ObserverView>);
 static_assert(!std::is_constructible_v<Inspector, const ObserverView&>);
 static_assert(!std::is_convertible_v<InspectionDiagnostic, ObserverView>);

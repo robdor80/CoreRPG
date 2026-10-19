@@ -1,6 +1,6 @@
 # CoreRPG — Roadmap vivo: fases, plataformas y Hosts
 
-**Fecha de revisión:** 2026-10-18.
+**Fecha de revisión:** 2026-10-19.
 **Referencias:** [Arquitectura](architecture.md), [ADR-0001](adr/0001-multi-universe-architecture.md), [ADR-0002](adr/0002-platforms-presentation-companion.md), [4.5 cierre](phases/4.5-generic-world-state.md), [4.6 plan](phases/4.6-rng-rules.md), [RFC iniciativa NPC](proposals/npc-initiative-authority-delegation.md).
 
 Este documento añade **criterios transversales** a la hoja de ruta incremental. No renumera fases ni atribuye al Core capacidades no implementadas. El Core seguirá siendo un único núcleo C++20 independiente de la tecnología de presentación.
@@ -12,6 +12,7 @@ Este documento añade **criterios transversales** a la hoja de ruta incremental.
 - **4.7 — Persistence:** integrada mediante PR #5, merge `483ad13ff9d68fc3f23146b4f01e26904d5ac3a9`, CI de main Windows/MSVC y Linux/GCC superada ([38381606241](https://github.com/robdor80/CoreRPG/actions/runs/38381606241)). Evidencias en [4.7](phases/4.7-persistence.md).
 - **4.8 — Entidades/población/relaciones:** integrada mediante PR #6, merge `d6e2c8fe5a33405bc41b082cf89d6c8036f3c8b8`. Clasificación y garantías en [ADR-0003](adr/0003-generic-population-relations.md) y [Fase 4.8](phases/4.8-entities-population.md).
 - **4.9 — Knowledge & Visibility:** fusionada mediante PR #7, merge `e7108e5cd0cc866b33296680ad36dcf670f83443`, con cinco jobs posteriores correctos según el cierre comunicado. Base Git verificada al abrir 4.10.
+- **4.10 — Actions & Simulation:** fusionada mediante PR #8, merge `7d497b99802773cbb46c06eaee71a2892b772a05`; cinco jobs de main correctos, [39221739803](https://github.com/robdor80/CoreRPG/actions/runs/39221739803). Verificado directamente al iniciar 4.11.
 - El estado de una rama no acredita que la fase ya esté fusionada en `main`.
 - Aún no están implementados: registro rico de personajes, horario/estado vivo completo, agendas de NPC, almacenamiento físico del Host y migraciones de guardados, autoridad contextual/órdenes ejecutables, módulos de Host, Companion y sus HUD. Los contratos de los juegos no equivalen a una implementación C++ del Core.
 
@@ -35,8 +36,8 @@ Este documento añade **criterios transversales** a la hoja de ruta incremental.
 | **4.7 Persistence** | **FUSIONADA:** identidades, asignador, revisión, vínculos, master seed y streams exactos. Codec v1 y restauración atómica. |
 | **4.8 Entidades/población/relaciones** | **FUSIONADA (PR #6):** reservas agregadas, emisión acotada, origen inmutable, bindings y grafo genérico. Persistencia v2 con lectura v1 intacta. Familias y rango fuera del Core. |
 | **4.9 Knowledge & Visibility** | **FUSIONADA (PR #7, `e7108e5`):** recuerdos parciales por observador, proyecciones sin metadatos globales y persistencia v3. Véase [4.9](phases/4.9-knowledge-visibility.md). |
-| **4.10 Actions + Simulation** | **IMPLEMENTADA EN RAMA, PENDIENTE DE AUDITORÍA:** ActionEngine tipado y pasos causales explícitos, ordenados y acotados; mismo mundo/RNG sin representación. Sin cola/reloj persistente; v1/v2/v3 intactos. RFC reevaluado: compromisos/autoridad/delegación aplazados. Véase [4.10](phases/4.10-actions-simulation.md). |
-| **4.11 Inspector** | Observación no mutante del estado lógico; diagnóstico para Hosts y validación. |
+| **4.10 Actions + Simulation** | **FUSIONADA (PR #8, `7d497b9`):** ActionEngine tipado y pasos causales explícitos, ordenados y acotados; mismo mundo/RNG sin representación. Sin cola/reloj persistente; v1/v2/v3 intactos. RFC reevaluado: compromisos/autoridad/delegación aplazados. Véase [4.10](phases/4.10-actions-simulation.md). |
+| **4.11 Inspector** | **IMPLEMENTADA EN RAMA, PENDIENTE DE AUDITORÍA HUMANA:** consultas técnicas privilegiadas, prestadas y paginadas; diagnóstico compartido con Persistence. ObserverView sigue siendo la única proyección autorizada para jugadores/NPC/IA. Sin historial ni 4.12. Véase [4.11](phases/4.11-inspector.md). |
 | **4.12 Context Builder + AI** | Contextos autorizados; propuestas de IA opcionales sujetas a revalidación; sin mutación directa ni dependencia obligatoria de API remota. |
 | **4.13 Primer Content Pack Nimroel** | Contenido real y validación de un consumidor, sin imponer un renderizador. |
 | **4.14 Integración prevista con Unreal** | Vinculada específicamente al Host **Star Trek/UE5**. **No** obliga a Nimroel a usar Unreal. La integración de Nimroel 2D se planificará en paralelo como Host independiente, sin cambiar por ahora los números de fase. |
@@ -51,7 +52,7 @@ No significa que todos los conceptos de las fases posteriores pertenezcan al Cor
 - PR #3 fusionada en `main`, commit `d23c400`; tres incrementos integrados.
 - CI de `main`: Windows/MSVC y Linux/GCC correctas, run `38365231770`.
 - Acta histórica: [4.5 Generic World State](phases/4.5-generic-world-state.md). No confundir persistencia lógica en memoria con guardado en disco.
-- 4.6 y 4.7 se fusionaron después mediante PR #4 y PR #5. 4.8 se integró después por PR #6. 4.9 se integró por PR #7. Fase actual: **4.10**, rama `feat/actions-simulation`, pendiente de auditoría e integración.
+- 4.6 y 4.7 se fusionaron después mediante PR #4 y PR #5. 4.8 se integró después por PR #6. 4.9 se integró por PR #7. 4.10 se integró por PR #8. Trabajo actual: **4.11**, rama `feat/inspector`, pendiente de auditoría humana e integración.
 
 ### P1 — Prueba Android NDK temprana (imprescindible)
 
@@ -135,4 +136,4 @@ No significa que todos los conceptos de las fases posteriores pertenezcan al Cor
 7. CI Windows/Linux no sustituye las pruebas Android NDK y UE5.
 8. No se reabre 4.5 para introducir redes, UI ni sistemas posteriores.
 
-**Siguiente paso del Core:** crear PR Draft de 4.10 desde `feat/actions-simulation`, comprobar CI y auditar; integración sujeta a decisión humana. No se inicia 4.11. El usuario delega creación de PR y consulta de Actions a ChatGPT porque la API de GitHub está bloqueada desde Cloud. P1 Android NDK sigue siendo una verificación independiente.
+**Siguiente paso del Core:** auditar la PR Draft de 4.11 desde `feat/inspector` y sus comprobaciones. La aprobación y fusión corresponden al propietario. No se inicia 4.12. P1 Android NDK sigue siendo una verificación independiente; los consumidores aún no acreditan integración nativa Core/Host. La API GitHub sí es accesible desde el entorno de esta fase (verificada el 2026-10-19).

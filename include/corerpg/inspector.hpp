@@ -1,7 +1,7 @@
 #pragma once
 
-#include <corerpg/world_state.hpp>
 #include <corerpg/persistence.hpp>
+#include <corerpg/world_state.hpp>
 
 #include <cstddef>
 #include <cstdint>
@@ -38,7 +38,8 @@ template <class T> struct InspectionPage final {
     InspectionProgress progress;
     std::span<const T> records;
 };
-/// Implicit contiguous IDs [first, first + count). Empty has invalid first.
+/// count contiguous IDs starting at first. Empty has invalid first.
+/// Iterate first.value() + i for i < count; the exclusive end may overflow.
 struct InspectionEntities final {
     InspectionProgress progress;
     EntityId first;
@@ -65,6 +66,7 @@ enum class InspectionDiagnosticStatus : std::uint8_t {
     limit_exceeded,
     allocation_failure,
     capacity_failure,
+    not_run,
 };
 enum class InspectionSeverity : std::uint8_t { information, warning, error };
 struct InspectionDiagnosticLimits final {
@@ -75,8 +77,8 @@ struct InspectionDiagnosticLimits final {
 /// code is present only when the shared validator ran to a decision (including
 /// Persistence limit_exceeded). No stale-memory comparison or automatic repair.
 struct InspectionDiagnostic final {
-    InspectionDiagnosticStatus status{InspectionDiagnosticStatus::valid};
-    InspectionSeverity severity{InspectionSeverity::information};
+    InspectionDiagnosticStatus status{InspectionDiagnosticStatus::not_run};
+    InspectionSeverity severity{InspectionSeverity::warning};
     std::optional<PersistenceStatus> code{};
     [[nodiscard]] bool valid() const noexcept { return status == InspectionDiagnosticStatus::valid; }
     bool operator==(const InspectionDiagnostic&) const = default;

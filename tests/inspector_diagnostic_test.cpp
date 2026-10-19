@@ -30,6 +30,8 @@ CampaignSnapshot diagnostic_fixture() {
     return Persistence::capture(world, random);
 }
 TEST(InspectorDiagnosticTest, ValidEmptyLiveAndCandidateAndExplicitResourceLimits) {
+    EXPECT_FALSE(InspectionDiagnostic{}.valid());
+    EXPECT_EQ(InspectionDiagnostic{}.status, InspectionDiagnosticStatus::not_run);
     WorldState empty;
     EXPECT_TRUE(Inspector{empty}.diagnose().valid());
     const auto snapshot = diagnostic_fixture();
