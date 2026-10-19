@@ -31,6 +31,7 @@ target_sources(
         src/content_diagnostic.cpp
         src/content_id.cpp
         src/entity_structure.cpp
+        src/inspector.cpp
         src/knowledge.cpp
         src/visibility.cpp
         src/population.cpp
@@ -60,6 +61,7 @@ target_sources(
             include/corerpg/definition_id.hpp
             include/corerpg/entity_id.hpp
             include/corerpg/entity_structure.hpp
+            include/corerpg/inspector.hpp
             include/corerpg/knowledge.hpp
             include/corerpg/visibility.hpp
             include/corerpg/pack_dependency.hpp
