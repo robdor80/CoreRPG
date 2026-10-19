@@ -1,6 +1,7 @@
 #pragma once
 
 #include <corerpg/world_state.hpp>
+#include <corerpg/persistence.hpp>
 
 #include <cstddef>
 #include <cstdint>
@@ -58,6 +59,29 @@ struct InspectedEntity final {
     std::optional<EntityId> population_origin;
 };
 
+enum class InspectionDiagnosticStatus : std::uint8_t {
+    valid,
+    invariant_violation,
+    limit_exceeded,
+    allocation_failure,
+    capacity_failure,
+};
+enum class InspectionSeverity : std::uint8_t { information, warning, error };
+struct InspectionDiagnosticLimits final {
+    std::uint64_t max_records{1'000'000}; // sum of sparse records, including snapshot streams
+    std::uint64_t max_scratch_bytes{8ULL * 1024ULL * 1024ULL}; // payload, excluding allocator overhead
+};
+/// One first-failure diagnostic, fixed-size output; resource failures are INCONCLUSIVE.
+/// code is present only when the shared validator ran to a decision (including
+/// Persistence limit_exceeded). No stale-memory comparison or automatic repair.
+struct InspectionDiagnostic final {
+    InspectionDiagnosticStatus status{InspectionDiagnosticStatus::valid};
+    InspectionSeverity severity{InspectionSeverity::information};
+    std::optional<PersistenceStatus> code{};
+    [[nodiscard]] bool valid() const noexcept { return status == InspectionDiagnosticStatus::valid; }
+    bool operator==(const InspectionDiagnostic&) const = default;
+};
+
 /// Read-only PRIVILEGED access for trusted Host/developer code only.
 /// ObserverView remains the ONLY information boundary for players/NPC/dialogue/AI.
 /// No allocation, RNG or mutation in queries. Host excludes concurrent mutation
@@ -88,6 +112,14 @@ class Inspector final {
     [[nodiscard]] InspectionPage<PopulationMembership> memberships(InspectionRequest request = {}) const noexcept;
     [[nodiscard]] InspectionPage<KnowledgeRecord> knowledge(
         EntityId observer, InspectionRequest request = {}) const noexcept;
+
+    /// Live structural validation without capture/serialization, bounded sparse scratch.
+    [[nodiscard]] InspectionDiagnostic diagnose(InspectionDiagnosticLimits limits = {}) const noexcept;
+    /// Explains a detached candidate without restoring it. Includes format/RNG-policy
+    /// and persistence resource checks. Does not verify catalog availability/content.
+    [[nodiscard]] static InspectionDiagnostic diagnose_snapshot(
+        const CampaignSnapshot& snapshot, InspectionDiagnosticLimits limits = {},
+        PersistenceLimits persistence_limits = {}) noexcept;
 
   private:
     const WorldState& world_;

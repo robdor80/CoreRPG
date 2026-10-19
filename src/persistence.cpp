@@ -2,7 +2,7 @@
 #include <corerpg/persistence.hpp>
 
 #include "persistence_internal.hpp"
-#include "knowledge_internal.hpp"
+#include "world_validation_internal.hpp"
 
 #include <algorithm>
 #include <type_traits>
@@ -89,149 +89,7 @@ PersistenceStatus Persistence::validate(const CampaignSnapshot& snapshot,
     if (!detail::encoded_save_size(snapshot, limits)) {
         return PersistenceStatus::limit_exceeded;
     }
-    const auto last = snapshot.last_entity_id;
-    if (snapshot.revision < last || (last == 0 && snapshot.revision != 0) ||
-        (snapshot.format_version == save_format_version && last <= 1 &&
-         snapshot.revision != last) ||
-        snapshot.containment.size() > snapshot.revision - last) {
-        return PersistenceStatus::invalid_world;
-    }
-    auto remaining_revision = snapshot.revision - last - snapshot.containment.size();
-    for (const auto count :
-         {snapshot.definitions.size(), snapshot.relations.size(), snapshot.populations.size(),
-          snapshot.knowledge.size()}) {
-        if (count > remaining_revision) {
-            return PersistenceStatus::invalid_world;
-        }
-        remaining_revision -= count;
-    }
-    EntityId previous;
-    for (const auto& link : snapshot.containment) {
-        if (!link.entity.is_valid() || !link.container.is_valid() || link.entity.value() > last ||
-            link.container.value() > last || link.entity == link.container) {
-            return PersistenceStatus::invalid_link;
-        }
-        if (link.entity <= previous) {
-            return PersistenceStatus::noncanonical_links;
-        }
-        previous = link.entity;
-    }
-    for (std::size_t i = 1; i < snapshot.streams.size(); ++i) {
-        if (snapshot.streams[i - 1].id >= snapshot.streams[i].id) {
-            return PersistenceStatus::noncanonical_streams;
-        }
-    }
-
-    previous = {};
-    for (const auto& binding : snapshot.definitions) {
-        if (!binding.entity.is_valid() || binding.entity.value() > last ||
-            !DefinitionId::is_valid_text(binding.definition_id)) {
-            return PersistenceStatus::invalid_definition;
-        }
-        if (binding.entity <= previous) {
-            return PersistenceStatus::noncanonical_definitions;
-        }
-        previous = binding.entity;
-    }
-    for (std::size_t i = 0; i < snapshot.relations.size(); ++i) {
-        const auto& edge = snapshot.relations[i];
-        if (!edge.source.is_valid() || !edge.target.is_valid() || !edge.kind.is_valid() ||
-            edge.source.value() > last || edge.target.value() > last) {
-            return PersistenceStatus::invalid_relation;
-        }
-        if (i != 0 && snapshot.relations[i - 1] >= edge) {
-            return PersistenceStatus::noncanonical_relations;
-        }
-    }
-    previous = {};
-    for (const auto& population : snapshot.populations) {
-        if (!population.group.is_valid() || population.group.value() > last ||
-            population.latent > population.total) {
-            return PersistenceStatus::invalid_population;
-        }
-        if (population.group <= previous) {
-            return PersistenceStatus::noncanonical_populations;
-        }
-        previous = population.group;
-    }
-    std::vector<std::uint64_t> counts(snapshot.populations.size(), 0);
-    previous = {};
-    for (const auto& member : snapshot.population_memberships) {
-        if (!member.entity.is_valid() || !member.population.is_valid() ||
-            member.entity.value() > last || member.population >= member.entity) {
-            return PersistenceStatus::invalid_membership;
-        }
-        if (member.entity <= previous) {
-            return PersistenceStatus::noncanonical_memberships;
-        }
-        previous = member.entity;
-        const auto position = std::lower_bound(
-            snapshot.populations.begin(), snapshot.populations.end(), member.population,
-            [](const auto& population, EntityId id) { return population.group < id; });
-        if (position == snapshot.populations.end() || position->group != member.population) {
-            return PersistenceStatus::invalid_membership;
-        }
-        ++counts[static_cast<std::size_t>(position - snapshot.populations.begin())];
-    }
-    for (std::size_t i = 0; i < snapshot.populations.size(); ++i) {
-        if (counts[i] != snapshot.populations[i].total - snapshot.populations[i].latent) {
-            return PersistenceStatus::invalid_population;
-        }
-    }
-
-    for (std::size_t i = 0; i < snapshot.knowledge.size(); ++i) {
-        const auto& record = snapshot.knowledge[i];
-        if (!record.observer.is_valid() || record.observer.value() > last ||
-            !detail::canonical_fact(record.fact, last)) return PersistenceStatus::invalid_knowledge;
-        if (i != 0 && detail::knowledge_key(snapshot.knowledge[i - 1]) >= detail::knowledge_key(record))
-            return PersistenceStatus::noncanonical_knowledge;
-    }
-    const auto knows = [&](EntityId observer, EntityId subject) {
-        const auto key = std::pair{observer, FactKey{subject}};
-        const auto it = std::lower_bound(snapshot.knowledge.begin(), snapshot.knowledge.end(), key,
-            [](const auto& record, const auto& value) { return detail::knowledge_key(record) < value; });
-        return it != snapshot.knowledge.end() && detail::knowledge_key(*it) == key;
-    };
-    for (const auto& record : snapshot.knowledge) {
-        const auto& fact = record.fact;
-        if (!knows(record.observer, fact.key.subject) ||
-            (fact.key.target.is_valid() && !knows(record.observer, fact.key.target)) ||
-            (fact.reference.is_valid() && !knows(record.observer, fact.reference)))
-            return PersistenceStatus::invalid_knowledge;
-    }
-
-    // Iterative coloring: every link is visited and finalized once. Only sparse
-    // records consume memory, never the implicit entity interval or a call stack.
-    const auto& links = snapshot.containment;
-    const auto parent_index = [&](std::size_t index) {
-        const auto parent = links[index].container;
-        const auto it =
-            std::lower_bound(links.begin(), links.end(), parent,
-                             [](const auto& link, EntityId id) { return link.entity < id; });
-        return it == links.end() || it->entity != parent
-                   ? links.size()
-                   : static_cast<std::size_t>(it - links.begin());
-    };
-    std::vector<std::uint8_t> colors(links.size(), 0);
-    for (std::size_t start = 0; start < links.size(); ++start) {
-        if (colors[start] == 2) {
-            continue;
-        }
-        auto index = start;
-        while (index < links.size() && colors[index] == 0) {
-            colors[index] = 1;
-            index = parent_index(index);
-        }
-        if (index < links.size() && colors[index] == 1) {
-            return PersistenceStatus::cycle_detected;
-        }
-        index = start;
-        while (index < links.size() && colors[index] == 1) {
-            colors[index] = 2;
-            index = parent_index(index);
-        }
-    }
-    return PersistenceStatus::success;
+    return detail::validate_world_structure(snapshot);
 }
 
 SerializedSnapshot Persistence::serialize(const CampaignSnapshot& snapshot,

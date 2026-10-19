@@ -1,7 +1,11 @@
 #include <corerpg/inspector.hpp>
 #include <corerpg/content_catalog.hpp>
 
+#include "world_validation_internal.hpp"
+
 #include <algorithm>
+#include <new>
+#include <stdexcept>
 
 namespace corerpg {
 namespace {
@@ -81,5 +85,56 @@ InspectionPage<PopulationMembership> Inspector::memberships(InspectionRequest re
 InspectionPage<KnowledgeRecord> Inspector::knowledge(EntityId observer, InspectionRequest request) const noexcept {
     return page<KnowledgeRecord>(world_.knowledge_of(observer), world_.revision(), request,
                                  world_.contains(observer));
+}
+} // namespace corerpg
+
+namespace corerpg {
+namespace {
+template <class State>
+bool diagnostic_budget(const State& state, InspectionDiagnosticLimits limits) noexcept {
+    auto remaining = limits.max_records;
+    for (const auto count : {state.containment.size(), state.definitions.size(), state.relations.size(),
+                            state.populations.size(), state.population_memberships.size(),
+                            state.knowledge.size(), state.streams.size()}) {
+        if (count > remaining) return false;
+        remaining -= count;
+    }
+    // Division/subtraction before multiplication, also on 32-bit hosts.
+    if (state.populations.size() > limits.max_scratch_bytes / sizeof(std::uint64_t)) return false;
+    return state.containment.size() <= limits.max_scratch_bytes -
+        state.populations.size() * sizeof(std::uint64_t);
+}
+InspectionDiagnostic diagnostic_code(PersistenceStatus status) noexcept {
+    if (status == PersistenceStatus::success)
+        return {InspectionDiagnosticStatus::valid, InspectionSeverity::information, status};
+    if (status == PersistenceStatus::limit_exceeded)
+        return {InspectionDiagnosticStatus::limit_exceeded, InspectionSeverity::warning, status};
+    return {InspectionDiagnosticStatus::invariant_violation, InspectionSeverity::error, status};
+}
+template <class Validate>
+InspectionDiagnostic run_diagnostic(bool budget, Validate validate) noexcept {
+    if (!budget) return {InspectionDiagnosticStatus::limit_exceeded, InspectionSeverity::warning, {}};
+    try {
+        return diagnostic_code(validate());
+    } catch (const std::bad_alloc&) {
+        return {InspectionDiagnosticStatus::allocation_failure, InspectionSeverity::warning, {}};
+    } catch (const std::length_error&) {
+        return {InspectionDiagnosticStatus::capacity_failure, InspectionSeverity::warning, {}};
+    }
+}
+} // namespace
+InspectionDiagnostic Inspector::diagnose(InspectionDiagnosticLimits limits) const noexcept {
+    const detail::WorldValidationView view{world_.last_entity_id_, world_.revision_, world_.containment_,
+        world_.definitions_, world_.relations_, world_.populations_, world_.population_memberships_,
+        world_.knowledge_};
+    return run_diagnostic(diagnostic_budget(view, limits), [&] {
+        return detail::validate_world_structure(view);
+    });
+}
+InspectionDiagnostic Inspector::diagnose_snapshot(const CampaignSnapshot& snapshot,
+    InspectionDiagnosticLimits limits, PersistenceLimits persistence_limits) noexcept {
+    return run_diagnostic(diagnostic_budget(snapshot, limits), [&] {
+        return Persistence::validate(snapshot, persistence_limits);
+    });
 }
 } // namespace corerpg
