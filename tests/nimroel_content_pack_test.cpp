@@ -5,6 +5,8 @@
 #include <corerpg/context_builder.hpp>
 #include <corerpg/persistence.hpp>
 #include <corerpg/simulation.hpp>
+#include <corerpg/inspector.hpp>
+#include "../examples/external_content_restore.hpp"
 
 #include <gtest/gtest.h>
 #include <jsoncons/json.hpp>
@@ -16,6 +18,7 @@
 #include <memory>
 #include <stdexcept>
 #include <string>
+#include <type_traits>
 
 namespace {
 using namespace corerpg;
@@ -210,5 +213,197 @@ TEST_F(NimroelPackTest, EquivalentInputsAndReversedDefinitionOrderAreDeterminist
     EXPECT_EQ(Persistence::capture(other.world, other.random), Persistence::capture(fixture->world, fixture->random));
     EXPECT_EQ(Persistence::serialize(Persistence::capture(other.world, other.random)).bytes,
               Persistence::serialize(Persistence::capture(fixture->world, fixture->random)).bytes);
+}
+void remember(Fixture& f) {
+    for (const auto entity : {f.village, f.smith, f.tool, f.first_observer})
+        require(f.world.learn_fact(f.first_observer, {entity}) == KnowledgeChange::applied);
+    for (const auto entity : {f.village, f.tavern})
+        require(f.world.learn_fact(f.second_observer, {entity}) == KnowledgeChange::applied);
+    for (const auto entity : {f.village, f.smith, f.tool})
+        require(f.world.learn_fact(f.first_observer, {entity, FactKind::definition}) == KnowledgeChange::applied);
+    for (const auto key : {FactKey{f.tool, FactKind::containment}, FactKey{f.village, FactKind::population},
+                          FactKey{f.smith, FactKind::population}, // known absence
+                          FactKey{f.village, FactKind::relation, f.service, f.smith},
+                          FactKey{f.first_observer, FactKind::population_origin}})
+        require(f.world.learn_fact(f.first_observer, key) == KnowledgeChange::applied);
+}
+
+// Only a detached authorized view crosses this endpoint, never a privileged handle.
+ContextResult observer_context(const ObserverView& view, const ContextRequest& request,
+                               std::span<VisibleFact> output, ContextLimits limits = {}) noexcept {
+    return ContextBuilder::build(view, request, output, limits);
+}
+static_assert(!std::is_constructible_v<ObserverView, const WorldState&>);
+static_assert(!std::is_invocable_v<decltype(&observer_context), const ContentCatalog&,
+                                 const ContextRequest&, std::span<VisibleFact>, ContextLimits>);
+static_assert(!std::is_invocable_v<decltype(&observer_context), const Inspector&,
+                                 const ContextRequest&, std::span<VisibleFact>, ContextLimits>);
+
+TEST_F(NimroelPackTest, PartialKnowledgeStaleMemoriesAndGrantsRemainSeparate) {
+    auto& f = *fixture;
+    remember(f);
+    const auto first = Visibility::project(f.world, f.first_observer);
+    const auto second = Visibility::project(f.world, f.second_observer);
+    EXPECT_TRUE(first.knows(f.smith));
+    EXPECT_FALSE(second.knows(f.smith));
+    EXPECT_FALSE(first.knows(f.tavern));
+    EXPECT_FALSE(first.knows(f.external));
+    EXPECT_EQ(second.find({f.smith, FactKind::population}), nullptr);
+    ASSERT_NE(first.find({f.smith, FactKind::population}), nullptr);
+    EXPECT_FALSE(first.find({f.smith, FactKind::population})->present);
+    ASSERT_EQ(ActionEngine::process(f.world, f.random, {f.first_observer,
+        PlaceEntityAction{f.tool, f.tavern}}).outcome, ActionOutcome::accepted);
+    ASSERT_EQ(f.world.materialize_population(f.village, 1, 1).status, MaterializationStatus::applied);
+    const auto old = Visibility::project(f.world, f.first_observer);
+    EXPECT_EQ(old.find({f.tool, FactKind::containment})->reference, f.smith);
+    EXPECT_EQ(old.find({f.village, FactKind::population})->latent, 48U);
+    EXPECT_EQ(f.world.population_of(f.village)->latent, 47U);
+    const auto snapshot = Persistence::capture(f.world, f.random);
+    const std::array grants{FactKey{f.tool, FactKind::containment}, FactKey{f.tavern},
+                           FactKey{f.village, FactKind::population}};
+    const auto current = Visibility::project(f.world, f.first_observer, grants);
+    EXPECT_EQ(current.find({f.tool, FactKind::containment})->reference, f.tavern);
+    EXPECT_EQ(current.find({f.tool, FactKind::containment})->provenance(), FactProvenance::temporary_grant);
+    EXPECT_EQ(current.find({f.village, FactKind::population})->latent, 47U);
+    EXPECT_EQ(Visibility::project(f.world, f.first_observer), old);
+    EXPECT_EQ(Persistence::capture(f.world, f.random), snapshot);
+    EXPECT_FALSE(Visibility::project(f.world, f.first_observer).knows(f.tavern));
+    EXPECT_EQ(first.find({f.tool, FactKind::containment})->reference, f.smith);
+}
+
+TEST_F(NimroelPackTest, ContextLimitsOrderAndHiddenQueriesUseAuthorizedViewOnly) {
+    auto& f = *fixture;
+    remember(f);
+    const auto before = Persistence::capture(f.world, f.random);
+    const auto view = Visibility::project(f.world, f.first_observer);
+    std::array<VisibleFact, 32> storage;
+    const auto complete = observer_context(view, {}, storage);
+    ASSERT_EQ(complete.status, ContextStatus::complete);
+    ASSERT_EQ(complete.emitted, view.facts().size());
+    EXPECT_TRUE(std::equal(view.facts().begin(), view.facts().end(), storage.begin()));
+    for (std::size_t i = 1; i < complete.emitted; ++i) EXPECT_LT(storage[i-1].key, storage[i].key);
+    const auto limited = observer_context(view, {}, storage, {4096, 1, 65536});
+    EXPECT_EQ(limited.status, ContextStatus::selection_limit);
+    EXPECT_EQ(limited.emitted, 1U);
+    EXPECT_EQ(storage[0], view.facts()[0]);
+    EXPECT_EQ(observer_context(view, {}, storage, {0, 128, 65536}).status, ContextStatus::examination_limit);
+    EXPECT_EQ(observer_context(view, {}, storage, {4096, 128, 58}).status, ContextStatus::content_limit);
+    EXPECT_EQ(observer_context(view, {}, std::span<VisibleFact>{}).status, ContextStatus::output_capacity);
+    ContextRequest filter;
+    filter.subject = f.tool;
+    filter.kind = FactKind::definition;
+    const auto selected = observer_context(view, filter, storage);
+    ASSERT_EQ(selected.emitted, 1U);
+    EXPECT_EQ(storage[0].definition_id(), "nimroel.treskal.villages:objects/ordinary-agricultural-tool");
+    for (const auto hidden : {f.external, f.tavern, EntityId{}, EntityId{999}}) {
+        filter.subject = hidden;
+        const auto empty = observer_context(view, filter, storage, {0, 0, 0});
+        EXPECT_EQ(empty.status, ContextStatus::complete);
+        EXPECT_EQ(empty.examined, 0U);
+        EXPECT_EQ(empty.emitted, 0U);
+    }
+    const Inspector inspector{f.world};
+    EXPECT_NE(inspector.definition(f.tavern, *built.catalog()), nullptr);
+    EXPECT_TRUE(inspector.diagnose().valid());
+    EXPECT_EQ(Visibility::project(f.world, f.first_observer), view);
+    EXPECT_EQ(Persistence::capture(f.world, f.random), before);
+}
+
+corerpg_example::ExternalSaveMetadata installed_identity() {
+    const auto lock = jsoncons::json::parse(bytes(pack_root / "content-lock.json"));
+    return {1, {{lock.at("pack_id").as<std::string>(), lock.at("pack_version").as<std::string>(),
+                 lock.at("definition_set_sha256").as<std::string>(), lock.at("release_sha256").as<std::string>()}},
+            lock.at("files").at("integration-fixture.json").as<std::string>()};
+}
+TEST_F(NimroelPackTest, RealSaveRestoresEveryTableRngKnowledgeAndNextIdentity) {
+    auto& f = *fixture;
+    remember(f);
+    ASSERT_EQ(ActionEngine::process(f.world, f.random, {f.first_observer,
+        PlaceEntityAction{f.tool, f.tavern}}).outcome, ActionOutcome::accepted);
+    ASSERT_EQ(ActionEngine::process(f.world, f.random, {f.first_observer,
+        StreamRollAction{f.stream, 1, 100}}).outcome, ActionOutcome::accepted);
+    const auto snapshot = Persistence::capture(f.world, f.random);
+    ASSERT_EQ(snapshot.format_version, 3U);
+    const auto serialized = Persistence::serialize(snapshot);
+    ASSERT_EQ(serialized.status, PersistenceStatus::success);
+    const auto decoded = Persistence::deserialize(serialized.bytes);
+    ASSERT_EQ(decoded.status, PersistenceStatus::success);
+    EXPECT_EQ(*decoded.snapshot, snapshot);
+    EXPECT_EQ(Persistence::serialize(*decoded.snapshot).bytes, serialized.bytes);
+    const std::array grants{FactKey{f.tavern}};
+    EXPECT_TRUE(Visibility::project(f.world, f.first_observer, grants).knows(f.tavern));
+    WorldState restored;
+    RandomStreams restored_rng{999};
+    const auto metadata = installed_identity();
+    const auto result = corerpg_example::restore_external_save(serialized.bytes, metadata, metadata,
+        *built.catalog(), restored, restored_rng);
+    ASSERT_EQ(result.status, corerpg_example::ExternalRestoreStatus::success);
+    EXPECT_EQ(Persistence::capture(restored, restored_rng), snapshot);
+    EXPECT_EQ(restored.revision(), snapshot.revision);
+    EXPECT_EQ(restored.container_of(f.tool).container, f.tavern);
+    const auto remembered = Visibility::project(restored, f.first_observer);
+    EXPECT_FALSE(remembered.knows(f.tavern));
+    EXPECT_EQ(remembered.find({f.tool, FactKind::containment})->reference, f.smith);
+    EXPECT_NE(remembered, Visibility::project(restored, f.second_observer));
+    EXPECT_EQ(restored_rng.stream(f.stream).next(), f.random.stream(f.stream).next());
+    EXPECT_EQ(restored.create_entity(), f.world.create_entity());
+    EXPECT_EQ(restored.entity_count(), snapshot.last_entity_id + 1);
+    const auto issued = restored.materialize_population(f.village, 1, 1);
+    const auto expected = f.world.materialize_population(f.village, 1, 1);
+    EXPECT_EQ(issued.first, expected.first);
+    EXPECT_EQ(issued.count, 1U);
+    EXPECT_EQ(Persistence::capture(restored, restored_rng), Persistence::capture(f.world, f.random));
+}
+
+TEST_F(NimroelPackTest, MissingDefinitionOrCorruptSaveNeverPublishesPartialWorld) {
+    auto& f = *fixture;
+    remember(f);
+    auto serialized = Persistence::serialize(Persistence::capture(f.world, f.random));
+    WorldState destination;
+    RandomStreams random{7};
+    static_cast<void>(destination.create_entity());
+    static_cast<void>(random.stream(9).next());
+    const auto original = Persistence::capture(destination, random);
+    const auto metadata = installed_identity();
+    const auto pack = memory_pack();
+    std::vector<ContentDefinitionInput> only_model{
+        ContentDefinitionInput{ResourceDefinition{definition("models/v1"), *ResourceKind::parse("settlement_model")}}};
+    const auto missing = ContentCatalog::create({ContentPackInput{pack.manifest(), only_model}});
+    ASSERT_TRUE(missing.succeeded());
+    const auto result = corerpg_example::restore_external_save(serialized.bytes, metadata, metadata,
+        *missing.catalog(), destination, random);
+    EXPECT_EQ(result.status, corerpg_example::ExternalRestoreStatus::invalid_save);
+    EXPECT_EQ(result.persistence_status, PersistenceStatus::definition_not_found);
+    EXPECT_EQ(Persistence::capture(destination, random), original);
+    EXPECT_EQ(Persistence::load(serialized.bytes, destination, random), PersistenceStatus::catalog_required);
+    serialized.bytes[0] ^= 1U;
+    EXPECT_EQ(corerpg_example::restore_external_save(serialized.bytes, metadata, metadata,
+        *built.catalog(), destination, random).status, corerpg_example::ExternalRestoreStatus::invalid_save);
+    EXPECT_EQ(Persistence::capture(destination, random), original);
+}
+
+TEST_F(NimroelPackTest, ExternalMetadataRejectsVersionsFingerprintsAndGeneratorContextBeforeCore) {
+    auto& f = *fixture;
+    const auto serialized = Persistence::serialize(Persistence::capture(f.world, f.random));
+    const auto installed = installed_identity();
+    const auto before = Persistence::capture(f.world, f.random);
+    for (int axis = 0; axis < 8; ++axis) {
+        auto saved = installed;
+        switch (axis) {
+        case 0: saved.releases[0].pack_version = "0.1.1"; break;
+        case 1: saved.releases[0].definition_set_sha256 = std::string(64, 'a'); break;
+        case 2: saved.releases[0].release_sha256 = std::string(64, 'b'); break;
+        case 3: saved.generation_context_sha256 = std::string(64, 'c'); break;
+        case 4: saved.releases.clear(); break;
+        case 5: saved.releases.push_back(saved.releases[0]); break;
+        case 6: saved.format_version = 2; break;
+        case 7: saved.releases[0].pack_id = "other.game"; break;
+        }
+        const auto result = corerpg_example::restore_external_save(serialized.bytes, saved, installed,
+            *built.catalog(), f.world, f.random);
+        EXPECT_EQ(result.status, corerpg_example::ExternalRestoreStatus::incompatible_content);
+        EXPECT_FALSE(result.persistence_status);
+        EXPECT_EQ(Persistence::capture(f.world, f.random), before);
+    }
 }
 } // namespace
