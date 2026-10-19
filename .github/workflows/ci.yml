@@ -30,7 +30,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: robdor80/Videojuego_Nimroel
-          ref: 305913a8c3fafa5b161672cffe105b4f643b4817
+          ref: 0fdf16925ef6171acc6f4f65c13d134ffd043df3
           path: .integration/nimroel
           persist-credentials: false
 
@@ -42,7 +42,7 @@ jobs:
         run: python -m pip install -r .integration/nimroel/Tools/CoreRPG413/requirements.txt
 
       - name: Configure
-        run: cmake --preset dev -DCORERPG_NIMROEL_SOURCE_DIR=.integration/nimroel ${{ matrix.cmake_args }}
+        run: cmake --preset dev "-DCORERPG_NIMROEL_SOURCE_DIR=.integration/nimroel" ${{ matrix.cmake_args }}
 
       - name: Build
         run: cmake --build --preset dev
@@ -94,7 +94,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           repository: robdor80/Videojuego_Nimroel
-          ref: 305913a8c3fafa5b161672cffe105b4f643b4817
+          ref: 0fdf16925ef6171acc6f4f65c13d134ffd043df3
           path: .integration/nimroel
           persist-credentials: false
       - uses: actions/setup-python@v5
