@@ -24,6 +24,9 @@ add_executable(
     content_manifest_test.cpp
     content_id_test.cpp
     entity_structure_test.cpp
+    inspector_diagnostic_test.cpp
+    inspector_integration_test.cpp
+    inspector_test.cpp
     knowledge_test.cpp
     knowledge_persistence_test.cpp
     visibility_test.cpp
@@ -165,3 +168,15 @@ if(CORERPG_BUILD_CONTENT_JSON)
 
     gtest_discover_tests(corerpg_content_json_tests)
 endif()
+
+# Isolate Inspector allocation injection; ordinary queries must never allocate.
+add_executable(corerpg_inspector_allocation_tests inspector_allocation_test.cpp)
+target_link_libraries(corerpg_inspector_allocation_tests PRIVATE CoreRPG::CoreRPG GTest::gtest_main)
+set_target_properties(corerpg_inspector_allocation_tests
+    PROPERTIES CXX_STANDARD 20 CXX_STANDARD_REQUIRED YES CXX_EXTENSIONS NO)
+if(MSVC)
+    target_compile_options(corerpg_inspector_allocation_tests PRIVATE /W4 /permissive-)
+elseif(CMAKE_CXX_COMPILER_ID MATCHES "Clang|GNU")
+    target_compile_options(corerpg_inspector_allocation_tests PRIVATE -Wall -Wextra -Wpedantic)
+endif()
+gtest_discover_tests(corerpg_inspector_allocation_tests)

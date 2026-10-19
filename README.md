@@ -162,10 +162,21 @@ const auto progress = corerpg::Simulation::step(world, random, requests, results
 // continuar con el sufijo no procesado, sin reenviar el prefijo confirmado.
 ```
 
-No se han iniciado Inspector 4.11 ni Context Builder/AI 4.12. El modelo de gameplay,
-percepción completa, agendas, payloads ricos y las políticas institucionales
-siguen pendientes. Windows/MSVC de 4.10 se comprobará en CI; Android ARM64 y
-puentes UE5/Godot necesitan verificaciones independientes.
+4.10 está fusionada mediante PR #8 (`7d497b9`), con los cinco jobs de main
+satisfactorios. 4.11 añade `Inspector` técnico **privilegiado y de solo lectura**:
+metadatos, entidades/bindings, contención, relaciones, reservas/origen y recuerdos,
+con páginas prestadas acotadas y diagnósticos compartidos con Persistence.
+No asigna memoria en consultas ni consume RNG. El Host excluye mutaciones durante
+el uso de préstamos; revisión esperada permite rechazar páginas obsoletas, pero
+no identifica sesiones o mundos reemplazados. Los diagnósticos pueden necesitar
+scratch acotado y comunicar resultados inconclusos por recursos.
+**ObserverView sigue siendo la única vía autorizada para jugadores, NPC, diálogo
+e IA**: no enviarles Inspector, ActionResult ni informes técnicos, tampoco en
+prompts. Véanse [contrato/ejemplo 4.11](docs/phases/4.11-inspector.md) y
+[ADR-0006](docs/adr/0006-privileged-read-only-inspector.md).
+4.11 está preparada para auditoría; su aprobación y fusión corresponden al propietario.
+Context Builder/AI 4.12, historial/replay, modelos de gameplay, agendas,
+Android ARM64 nativo y puentes UE5/Godot siguen pendientes.
 
 ## Compilación
 
@@ -204,4 +215,4 @@ adoptada antes de la fase 4.5 se documenta de forma normativa en
 su decisión arquitectónica se registra en
 [`docs/adr/0001-multi-universe-architecture.md`](docs/adr/0001-multi-universe-architecture.md).
 
-Documentación de etapas: [cierre 4.5](docs/phases/4.5-generic-world-state.md) · [historia 4.6](docs/phases/4.6-rng-rules.md) · [4.7 Persistence](docs/phases/4.7-persistence.md) · [4.8 entidades/población](docs/phases/4.8-entities-population.md) · [4.9 Knowledge](docs/phases/4.9-knowledge-visibility.md) · [4.10 Actions/Simulation](docs/phases/4.10-actions-simulation.md) · [roadmap](docs/roadmap.md).
+Documentación de etapas: [cierre 4.5](docs/phases/4.5-generic-world-state.md) · [historia 4.6](docs/phases/4.6-rng-rules.md) · [4.7 Persistence](docs/phases/4.7-persistence.md) · [4.8 entidades/población](docs/phases/4.8-entities-population.md) · [4.9 Knowledge](docs/phases/4.9-knowledge-visibility.md) · [4.10 Actions/Simulation](docs/phases/4.10-actions-simulation.md) · [4.11 Inspector](docs/phases/4.11-inspector.md) · [roadmap](docs/roadmap.md).

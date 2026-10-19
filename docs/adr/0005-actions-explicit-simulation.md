@@ -1,6 +1,7 @@
 # ADR-0005 — Acciones tipadas y simulación causal explícita
 
-- Estado: aceptada para Fase 4.10, pendiente de auditoría humana.
+- Estado: integrada en main por PR #8, merge `7d497b9` (2026-10-19).
+  Actualización de estado al iniciar 4.11; el contrato histórico no cambia.
 - Fecha: 2026-10-18.
 - Base: `e7108e5cd0cc866b33296680ad36dcf670f83443`, PR #7 integrada.
 
