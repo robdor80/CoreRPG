@@ -1,4 +1,5 @@
 #include <corerpg/persistence.hpp>
+#include "../examples/external_content_restore.hpp"
 
 #include <gtest/gtest.h>
 
@@ -170,6 +171,20 @@ TEST_F(PersistenceAllocationTest, RestorePreservesBothDestinationsAtEveryAllocat
 
 TEST_F(PersistenceAllocationTest, LoadPreservesBothDestinationsAtEveryAllocationFailure) {
     fail_each_allocation([&] { return Persistence::load(bytes, target, target_random); }, true);
+}
+
+TEST_F(PersistenceAllocationTest, ExternalMetadataAndLoadPreserveDestinationsAtEveryAllocationFailure) {
+    const auto catalog = corerpg::ContentCatalog::create({});
+    ASSERT_TRUE(catalog.succeeded());
+    // Long valid identity forces the Host metadata parsers to allocate too.
+    const corerpg_example::ExternalSaveMetadata metadata{
+        1, {{"example.external-content-allocation", "1.0.0", std::string(64, 'a'), std::string(64, 'b')}},
+        std::string(64, 'c')};
+    fail_each_allocation([&] {
+        const auto result = corerpg_example::restore_external_save(
+            bytes, metadata, metadata, *catalog.catalog(), target, target_random);
+        return result.persistence_status.value_or(PersistenceStatus::invalid_world);
+    }, true);
 }
 
 } // namespace
