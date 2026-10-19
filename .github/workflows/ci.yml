@@ -26,8 +26,23 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@v4
 
+      - name: Prepare pinned external content (test infrastructure only)
+        uses: actions/checkout@v4
+        with:
+          repository: robdor80/Videojuego_Nimroel
+          ref: 305913a8c3fafa5b161672cffe105b4f643b4817
+          path: .integration/nimroel
+          persist-credentials: false
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install authoring validator
+        run: python -m pip install -r .integration/nimroel/Tools/CoreRPG413/requirements.txt
+
       - name: Configure
-        run: cmake --preset dev ${{ matrix.cmake_args }}
+        run: cmake --preset dev -DCORERPG_NIMROEL_SOURCE_DIR=.integration/nimroel ${{ matrix.cmake_args }}
 
       - name: Build
         run: cmake --build --preset dev
@@ -70,3 +85,30 @@ jobs:
         run: cmake --build build/sanitizers --parallel 2
       - name: Test
         run: ctest --test-dir build/sanitizers --output-on-failure
+
+  external-pack-sanitizers:
+    name: Linux GCC / ContentJson external pack ASan + UBSan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          repository: robdor80/Videojuego_Nimroel
+          ref: 305913a8c3fafa5b161672cffe105b4f643b4817
+          path: .integration/nimroel
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install -r .integration/nimroel/Tools/CoreRPG413/requirements.txt
+      - name: Configure instrumented ContentJson integration
+        run: >-
+          cmake -S . -B build/external-sanitizers -DBUILD_TESTING=ON
+          -DCORERPG_BUILD_CONTENT_JSON=ON
+          -DCORERPG_NIMROEL_SOURCE_DIR=.integration/nimroel -DCMAKE_BUILD_TYPE=Debug
+          -DCMAKE_CXX_FLAGS="-fsanitize=address,undefined -fno-omit-frame-pointer"
+          -DCMAKE_EXE_LINKER_FLAGS="-fsanitize=address,undefined"
+      - name: Build real integration
+        run: cmake --build build/external-sanitizers --target corerpg_nimroel_integration_tests --parallel 2
+      - name: Test instrumented external pack
+        run: ctest --test-dir build/external-sanitizers -R Nimroel --output-on-failure

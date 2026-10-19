@@ -24,6 +24,7 @@ add_executable(
     content_manifest_test.cpp
     content_id_test.cpp
     entity_structure_test.cpp
+    external_content_restore_test.cpp
     inspector_diagnostic_test.cpp
     inspector_integration_test.cpp
     inspector_test.cpp
@@ -209,6 +210,9 @@ if(CORERPG_NIMROEL_SOURCE_DIR)
         message(FATAL_ERROR "Nimroel integration requires the optional ContentJson target")
     endif()
     find_package(Python3 REQUIRED COMPONENTS Interpreter)
+    get_filename_component(CORERPG_NIMROEL_SOURCE_DIR "${CORERPG_NIMROEL_SOURCE_DIR}"
+        ABSOLUTE BASE_DIR "${PROJECT_SOURCE_DIR}")
+    file(TO_CMAKE_PATH "${CORERPG_NIMROEL_SOURCE_DIR}" CORERPG_NIMROEL_SOURCE_DIR)
     set(nimroel_pack "${CORERPG_NIMROEL_SOURCE_DIR}/ContentPacks/treskal-villages/pack")
     set(nimroel_validator "${CORERPG_NIMROEL_SOURCE_DIR}/Tools/CoreRPG413/validate.py")
     execute_process(COMMAND "${Python3_EXECUTABLE}" "${nimroel_validator}"
