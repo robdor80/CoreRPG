@@ -128,18 +128,44 @@ temporales explícitas del caller de confianza. Los cambios secretos no
 refrescan recuerdos. El [formato v3](docs/persistence-format-v3.md) guarda
 Knowledge; v1/v2 conservan sus bytes y cargan Knowledge vacío.
 WorldState, Persistence y el builder son APIs privilegiadas: los clientes no
-confiables reciben sólo ObserverView. [Contrato y límites 4.9](docs/phases/4.9-knowledge-visibility.md).
+confiables reciben sólo ObserverView. 4.9 se fusionó mediante PR #7, merge
+`e7108e5`, con cinco jobs de CI posterior correctos según el cierre comunicado.
+[Contrato y límites 4.9](docs/phases/4.9-knowledge-visibility.md).
 
-Todavía no hay un estado del mundo genérico completo, un sistema extensible de
-reglas de gameplay, un ActionEngine general, simulación, percepción completa,
-simulación temporal de población, gameplay ni Content Packs reales. Las fases 4.2–4.4 cerraron el
-contenido declarativo y el Core mínimo sin inventar dominio; **4.5 quedó
-fusionada y validada** y aporta los vínculos vivos estructurales. **4.6 está
-fusionada en `main`** (PR #4, `8f1cbf7`, CI Windows/Linux superada), con ownership
-de RNG y comprobaciones de reglas
-estructurales puras; no proporciona todavía acciones generales. La instanciación
-de payloads de arquetipos, la política institucional y la
-simulación son asuntos futuros. 4.10 contempla Actions + Simulation.
+La Fase 4.10 incorpora `ActionEngine::process`: solicitudes tipadas de contención,
+relaciones y tiradas con origen lógico, precondiciones y revisión esperada opcional.
+`Simulation::step` procesa lotes en orden explícito con límites y resultados por
+acción. Las entidades fuera de escena usan el mismo mundo y el mismo RNG.
+Rechazos y no-ops no publican cambios; los resultados internos son privilegiados
+y no actualizan recuerdos ni conceden visibilidad. No hay reloj, cola persistente,
+IA, jerarquía social o scheduler automático. V1/v2/v3 conservan bytes y semántica.
+[Contrato y auditoría 4.10](docs/phases/4.10-actions-simulation.md).
+
+Ejemplo desde un Host de confianza (resultados internos, no datos autorizados de UI):
+
+```cpp
+#include <corerpg/simulation.hpp>
+#include <corerpg/world_state.hpp>
+#include <corerpg/random_streams.hpp>
+#include <array>
+
+corerpg::WorldState world;
+corerpg::RandomStreams random{42};
+const auto unit = world.create_entity();
+const auto destination = world.create_entity();
+const std::array requests{
+    corerpg::ActionRequest{unit, corerpg::PlaceEntityAction{unit, destination}, world.revision()},
+    corerpg::ActionRequest{unit, corerpg::StreamRollAction{17, 1, 6}}};
+std::array<corerpg::ActionResult, 2> results;
+const auto progress = corerpg::Simulation::step(world, random, requests, results);
+// Sólo results[0..progress.processed) son definitivos. Ante interrupción,
+// continuar con el sufijo no procesado, sin reenviar el prefijo confirmado.
+```
+
+No se han iniciado Inspector 4.11 ni Context Builder/AI 4.12. El modelo de gameplay,
+percepción completa, agendas, payloads ricos y las políticas institucionales
+siguen pendientes. Windows/MSVC de 4.10 se comprobará en CI; Android ARM64 y
+puentes UE5/Godot necesitan verificaciones independientes.
 
 ## Compilación
 
@@ -178,4 +204,4 @@ adoptada antes de la fase 4.5 se documenta de forma normativa en
 su decisión arquitectónica se registra en
 [`docs/adr/0001-multi-universe-architecture.md`](docs/adr/0001-multi-universe-architecture.md).
 
-Documentación de etapas: [cierre 4.5](docs/phases/4.5-generic-world-state.md) · [historia 4.6](docs/phases/4.6-rng-rules.md) · [4.7 Persistence](docs/phases/4.7-persistence.md) · [4.8 entidades/población](docs/phases/4.8-entities-population.md) · [roadmap](docs/roadmap.md).
+Documentación de etapas: [cierre 4.5](docs/phases/4.5-generic-world-state.md) · [historia 4.6](docs/phases/4.6-rng-rules.md) · [4.7 Persistence](docs/phases/4.7-persistence.md) · [4.8 entidades/población](docs/phases/4.8-entities-population.md) · [4.9 Knowledge](docs/phases/4.9-knowledge-visibility.md) · [4.10 Actions/Simulation](docs/phases/4.10-actions-simulation.md) · [roadmap](docs/roadmap.md).

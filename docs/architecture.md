@@ -34,9 +34,9 @@ tiempo, simulación, percepción, persistencia y generación procedural.
 
 Sólo el Core puede aceptar una mutación del mundo. Los hosts y herramientas
 solicitan operaciones y consultas; no reciben acceso mutable al almacenamiento
-interno para saltarse sus invariantes. Las futuras acciones y reglas validarán
-y aplicarán cambios mediante APIs controladas del Core. Esta es una frontera
-arquitectónica: todavía no existe un framework general de comandos o acciones.
+interno para saltarse sus invariantes. Las acciones y reglas validan y aplican
+cambios mediante APIs controladas del Core. ActionEngine 4.10 aporta
+un ejecutor tipado mínimo; no existe un framework universal de gameplay.
 
 CoreRPG no contiene conceptos de un universo concreto y no depende de sistemas
 de presentación, red o plataforma.
@@ -259,10 +259,10 @@ política de semillas explícita.
 
 `RollAction` es una vertical mínima de foundation. Demuestra input estructurado,
 validación contra `WorldState`, consumo determinista de RNG, resultado explícito
-y fallo sin mutación persistente. No es el framework general de acciones: no
-existen todavía una clase base `Action`, un sistema de comandos, dispatcher,
-registry, efectos generales ni framework de simulación. Ese modelo corresponde
-principalmente a 4.10.
+y fallo sin mutación persistente. Por sí sola no es un framework general de acciones.
+ActionEngine 4.10 la reutiliza dentro de una solicitud tipada y Simulation
+ordena esas solicitudes; no se crean clase base Action, registry o efectos
+universales de gameplay.
 
 ### 4.6 — RNG streams y reglas estructurales (fusionada)
 
@@ -481,8 +481,9 @@ Esto no simula todos los fallos de memoria o plataformas posibles.
 
 Estas operaciones son primitivas estructurales bajo autoridad de `WorldState`.
 No autorizan por sí solas cambios de gameplay desde Hosts o IA. La autorización
-contextual, permisos, capacidades, costes y reglas se resolverán en futuras
-Rules y Actions; todavía no existe un dispatcher seguro general. No se expone
+contextual, permisos, capacidades, costes y reglas de gameplay siguen
+requiriendo políticas de consumidores. ActionEngine añade ejecución estructural
+con precondiciones y revisión, sin convertirla en autorización social. No se expone
 almacenamiento mutable ni un setter universal.
 
 La contención no depende de RNG ni de `ContentCatalog`. Las fases 4.6 y 4.7
@@ -494,7 +495,7 @@ acciones generales ni simulación.
 
 ### Integración y fronteras posteriores
 
-El Incremento 3 verifica los fundamentos y la contención como conjunto, sin
+El Incremento 3 histórico de 4.5 verifica los fundamentos y la contención como conjunto, sin
 añadir capacidades. Sus pruebas combinan creación, cadena anidada, reasociación,
 rechazo de ciclos sobre la topología vigente, retirada con descendientes,
 no-op, copia y asignación de varios niveles, y emisión independiente de IDs
@@ -528,11 +529,12 @@ Las fronteras futuras son:
 - **4.10 — Actions + Simulation:** la atomicidad actual es local a cada
   primitiva. Una secuencia de llamadas no constituye una transacción general;
   si una operación posterior falla, las anteriores conservan sus cambios.
-  Coordinación, permisos, costes y autorización de gameplay siguen pendientes.
+  ActionEngine reutiliza esa atomicidad; Simulation informa el prefijo completado.
+  Permisos sociales, costes y autorización de gameplay siguen en consumidores.
 - **4.11 — Inspector:** las consultas permiten observar sin mutar, con los
   límites de las consultas sucesivas y ausencia de concurrencia ya documentados.
 - **4.12 — Context Builder + AI:** una IA podrá proponer intenciones mediante
-  la futura frontera de acciones; las consultas no le otorgan autoridad para
+  la frontera de acciones 4.10; las consultas no le otorgan autoridad para
   modificar la realidad.
 
 ## 4.7 — Persistencia lógica y almacenamiento del Host
@@ -617,8 +619,8 @@ requiere catálogo si hay bindings y prepara ambos valores antes de publicar
 todas las tablas y RNG. No se guarda ni carga contenido externo automáticamente.
 La selección de versiones de packs y generación de arquetipos ricos queda aplazada.
 
-4.8 se integró mediante PR #6, merge `d6e2c8f`. Actions/Simulation 4.10 no se
-ha iniciado. Familias, rangos, especies y ciudadanía son políticas
+4.8 se integró mediante PR #6, merge `d6e2c8f`. Actions/Simulation 4.10 se
+describe en su sección propia. Familias, rangos, especies y ciudadanía son políticas
 externas o candidatos reutilizables que requieren invariantes demostradas.
 
 ## Knowledge y Visibility — Fase 4.9
@@ -654,6 +656,61 @@ tiempos/asignaciones o anonimización de IDs opacos. Las vistas ya entregadas no
 se revocan retroactivamente. El [codec v3](persistence-format-v3.md) conserva
 recuerdos y ausencia, con carga conjunta atómica de mundo/RNG y compatibilidad
 exacta v1/v2. Proyecciones temporales no forman parte del guardado.
+
+## Actions & Simulation — Fase 4.10
+
+Contrato en [ADR-0005](adr/0005-actions-explicit-simulation.md), implementación y
+validación en [acta 4.10](phases/4.10-actions-simulation.md). 4.9 está fusionada
+por PR #7, merge `e7108e5`; CI posterior con cinco jobs correctos según el cierre
+comunicado. La rama 4.10 parte de ese main verificado mediante fetch.
+
+ActionRequest contiene actor/origen existente, una operación cerrada y tipada,
+revisión esperada opcional y precondiciones RuleCheck ordenadas. Actor y sujeto
+pueden diferir; el actor no concede permiso social ni autentica la solicitud.
+El Host de confianza autentica, autoriza y convierte entradas externas. NPC,
+jugador y futuras propuestas IA utilizan la misma API privilegiada.
+
+ActionEngine::process valida límites, origen, revisión y condiciones vigentes,
+y ejecuta exactamente una primitiva: contención, relación o tirada con stream
+explícito. No introduce otro WorldState, datos de gameplay, callbacks ni DSL.
+Accepted entrega una consecuencia tipada; no_change y rejected no entregan efectos.
+Los diagnósticos y revisiones son internos y pueden revelar hechos ocultos:
+no se convierten en eventos públicos ni se entregan crudos al observador.
+Knowledge sólo cambia mediante sus APIs explícitas y Visibility mantiene sus
+concesiones; mutar realidad no actualiza recuerdos ni revela extremos desconocidos.
+
+Las primitivas anteriores conservan su contrato y son privilegiadas para
+inicialización/compatibilidad. Una mutación efectiva aumenta revisión una vez;
+un no-op o rechazo no la modifica. Tiradas aceptadas no cambian revisión del
+mundo; singleton no crea stream. Rango inválido o rechazo no consume RNG.
+Después de abrir un stream no se ejecuta ninguna operación que pueda lanzar;
+los resultados son valores sin asignaciones. Excepción conserva mundo y RNG.
+Revisión esperada protege contra cambios de mundo desde una propuesta anterior,
+pero no identifica sesiones ni deduplica tiradas/transportes: responsabilidad del Host.
+
+Simulation::step procesa el span de entrada secuencialmente contra ese mismo
+mundo/pool. El caller proporciona almacenamiento de salida. Lote por encima del
+presupuesto o salida insuficiente se rechazan antes de ejecutar; precondiciones
+se limitan por acción. Un paso completado incluye rechazos/no-ops en su cantidad
+procesada. Fallos de memoria/capacidad interrumpen antes de la acción fallida y
+retornan el prefijo definitivo: continuar sólo con el sufijo. No hay rollback
+ni repetición automática de acciones confirmadas, ni atomicidad de lote completo.
+No se promete límite de duración de una primitiva o del rejection sampling RNG.
+
+No se necesita tiempo lógico persistente, cola ni log interno: las consecuencias
+confirmadas viven en WorldState/RandomStreams y v1/v2/v3 ya las guardan. Se puede
+guardar al retornar de step, también ante interrupción. El Host conserva entradas
+pendientes/cursor o logs externos cuando los necesite; no se restaura una cola
+inexistente ni se reproducen solicitudes al cargar. La continuidad causal se
+expresa por entradas explícitas y ordenadas, sin FPS, reloj del sistema o motor
+visual. Los pasos no individualizan reservas latentes automáticamente.
+
+Las tablas siguen teniendo sus costes lineales/logarítmicos existentes; process
+no copia el mundo y step no reserva resultados. La unidad de presupuesto es la
+solicitud y sus checks, no bytes del mundo, NPC deliberados o tiempo real.
+No hay soporte concurrente. Tareas, órdenes, compromisos, delegación y generación
+de intenciones del RFC permanecen aplazados tras probar el mínimo. No se inicia
+Inspector, Context Builder, red, IA o integración UE5/Godot/Android.
 
 ## Versiones independientes
 
@@ -987,8 +1044,9 @@ funcionales posteriores:
 - **4.8 — Entidades/población/relaciones:** bindings, grafo tipado, reservas
   latentes, individualización acotada y persistencia v2; sin modelos de familia,
   profesiones o generación de arquetipos ricos.
-- **4.10 — actions + simulation:** introduce el modelo general de acciones y
-  simulación del que `RollAction` es sólo una vertical inicial.
+- **4.9 — Knowledge & Visibility:** recuerdos independientes, proyecciones y v3.
+- **4.10 — actions + simulation:** solicitudes tipadas y ejecución por pasos
+  ordenados/acotados, reutilizando también RollAction; sin framework universal.
 
 La frontera entre 4.4 y 4.5 queda así fijada: 4.4 termina en la definición y
 validación de contenido declarativo; 4.5 desarrolla hechos runtime mutables

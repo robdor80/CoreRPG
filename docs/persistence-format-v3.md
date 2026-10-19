@@ -69,3 +69,19 @@ O(K + texto). Las proyecciones y concesiones temporales no se serializan.
 Snapshots y bytes completos son privilegiados: nunca se entregan a clientes que
 sólo están autorizados a recibir ObserverView. CRC detecta corrupción, no autentica.
 I/O físico, sincronización de acceso y selección de contenido pertenecen al Host.
+
+## Integración Actions & Simulation 4.10
+
+ActionEngine y Simulation no añaden estado persistente. Las consecuencias de
+contención/relaciones se guardan en las tablas existentes y las tiradas conservan
+su continuación en RandomStreams. No se cambia ningún octeto de v1/v2/v3 ni se
+introduce v4. Guardar después de un paso y cargar no reproduce solicitudes,
+no crea streams ausentes y no refresca Knowledge desactualizado.
+
+Simulation no posee cola, reloj ni resultados pendientes. Sólo se guarda entre
+llamadas, incluido el retorno por interrupción: su prefijo completado ya es
+realidad. El Host conserva el cursor y las entradas externas si necesita
+continuar un lote, además de cualquier log de resultados que quiera conservar.
+CampaignSnapshot no promete replay, deduplicación de transporte ni persistencia
+de tiradas ya entregadas como resultados. Los resultados internos son
+privilegiados y no se convierten automáticamente en recuerdos ni datos de UI.

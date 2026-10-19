@@ -15,6 +15,9 @@ FetchContent_MakeAvailable(googletest)
 
 add_executable(
     corerpg_tests
+    action_test.cpp
+    action_persistence_test.cpp
+    action_determinism_test.cpp
     content_compatibility_test.cpp
     content_catalog_test.cpp
     content_pack_validation_test.cpp
@@ -32,6 +35,7 @@ add_executable(
     rule_check_test.cpp
     roll_action_test.cpp
     smoke_test.cpp
+    simulation_test.cpp
     world_state_integration_test.cpp
     world_state_test.cpp
 )
@@ -99,6 +103,18 @@ elseif(CMAKE_CXX_COMPILER_ID MATCHES "Clang|GNU")
     target_compile_options(corerpg_entity_structure_allocation_tests PRIVATE -Wall -Wextra -Wpedantic)
 endif()
 gtest_discover_tests(corerpg_entity_structure_allocation_tests)
+
+# Action/step allocation failures must not instrument any other test executable.
+add_executable(corerpg_action_allocation_tests action_allocation_test.cpp)
+target_link_libraries(corerpg_action_allocation_tests PRIVATE CoreRPG::CoreRPG GTest::gtest_main)
+set_target_properties(corerpg_action_allocation_tests
+    PROPERTIES CXX_STANDARD 20 CXX_STANDARD_REQUIRED YES CXX_EXTENSIONS NO)
+if(MSVC)
+    target_compile_options(corerpg_action_allocation_tests PRIVATE /W4 /permissive-)
+elseif(CMAKE_CXX_COMPILER_ID MATCHES "Clang|GNU")
+    target_compile_options(corerpg_action_allocation_tests PRIVATE -Wall -Wextra -Wpedantic)
+endif()
+gtest_discover_tests(corerpg_action_allocation_tests)
 
 add_executable(corerpg_knowledge_allocation_tests knowledge_allocation_test.cpp)
 target_link_libraries(corerpg_knowledge_allocation_tests PRIVATE CoreRPG::CoreRPG GTest::gtest_main)

@@ -1,7 +1,7 @@
 # ADR-0002 — Plataformas, presentación y Companion opcional
 
 **Estado:** ACEPTADA para las decisiones de producto y las fronteras arquitectónicas indicadas. Los detalles técnicos expresamente abiertos requieren decisiones posteriores.  
-**Fecha:** 2026-10-10.  
+**Fecha:** 2026-10-10. Actualización de selección 2D: 2026-10-18.
 **Complementa:** [ADR-0001](0001-multi-universe-architecture.md).  
 **Ejecución:** [Roadmap](../roadmap.md).
 
@@ -24,7 +24,7 @@ CoreRPG es un núcleo lógico C++20, portable, determinista y autoritativo. Los 
 - Videojuego **estrictamente 2D**; no se requiere 2.5D, 3D isométrico ni Unreal.
 - Ejecución **nativa e independiente** en Windows y Android (Samsung Galaxy Tab S9+ como referencia). Android no necesita MSI encendido, conexión local ni Companion.
 - Windows tendrá HUD 2D completo para teclado/ratón; Android, HUD táctil 2D completo.
-- El motor gráfico 2D concreto permanece **sin elegir**. La escala del mundo y la persistencia de NPC no dependen del nivel de detalle de la presentación.
+- Motor de presentación fijado por el encargo 4.10: **Godot 4.7.2 Standard**. La escala del mundo y la persistencia de NPC no dependen del nivel de detalle de la presentación; Godot no es una dependencia de CoreRPG.
 
 ### Núcleo y Hosts
 
@@ -54,7 +54,7 @@ CoreRPG es un núcleo lógico C++20, portable, determinista y autoritativo. Los 
 
 Nimroel Android nativo y Companion **son dos modos diferentes**. No se presume sincronización automática de partidas entre Windows y Android.
 
-## Estado comprobado y riesgos de integración
+## Estado histórico al adoptar la ADR y riesgos de integración
 
 - CoreRPG ofrece identidad runtime contextual, emisión y enumeración de EntityId, revisión y contención opcional en la rama de 4.5. RNG/RollAction son infraestructuras mínimas; ContentCatalog es declarativo.
 - No están implementados registros de dominio completos, puente general DefinitionId→EntityId, población, horarios, reglas/acciones generales, simulación, guardado, HUD ni Companion.
@@ -64,7 +64,7 @@ Nimroel Android nativo y Companion **son dos modos diferentes**. No se presume s
 
 ## Decisiones pendientes
 
-Motor 2D de Nimroel; implementación concreta de adaptadores UE5/Android; empaquetado de Content Packs Android; formato/ciclo de guardado; datos de población/turnos y LOD; transporte real USB sin depuración, seguridad/protocolo y UX de Companion. **Ninguna elección se realiza aquí por anticipado**.
+Implementación concreta de adaptadores UE5/Android; empaquetado de Content Packs Android; formato/ciclo de guardado; datos de población/turnos y LOD; transporte real USB sin depuración, seguridad/protocolo y UX de Companion. **Ninguna elección se realiza aquí por anticipado**.
 
 ## Seguimiento y control
 

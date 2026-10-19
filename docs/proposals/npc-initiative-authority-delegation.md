@@ -104,3 +104,26 @@ No se reserva nueva numeración de fase. La ubicación del sistema de compromiso
 **Aceptar el problema compartido; aplazar la forma técnica.** No implementar en 4.5, no alterar sus contratos y no crear subsistemas paralelos. Retomar la evaluación junto a Actions/Simulation, preservando los requisitos verificados de Star Trek, Nimroel y casos sin jerarquía.
 
 Este RFC será sustituido o complementado por una ADR de diseño **sólo si** se decide una interfaz definitiva y se autorizan cambios.
+
+## 9. Reevaluación tras el mínimo funcional 4.10 (2026-10-18)
+
+ActionEngine acepta un origen lógico existente y Simulation procesa sus entradas
+sin Actor ni sprite. Los escenarios ejecutables de dotación y habitantes
+validan identidad, consecuencias, orden y continuidad; no generan intenciones.
+Un NPC usa el mismo ActionRequest que cualquier otro origen: no existe permiso
+especial, segundo ejecutor, callback de IA ni jerarquía implícita.
+
+La revisión esperada opcional y las precondiciones se revalidan al ejecutar.
+Esto cubre propuestas externas obsoletas respecto al mundo, pero no define
+legitimidad, consentimiento, recursos de dominio o autoridad narrativa.
+Resultados/diagnósticos son privilegiados; Knowledge y Visibility no se refrescan
+por ejecutar una acción. Autenticación, autorización externa, sesiones y
+reintentos de transporte siguen siendo responsabilidad del Host.
+
+**Decisión:** no añadir contratos de compromisos, órdenes, delegación ni autoridad
+contextual en 4.10. Los consumidores ejecutables actuales sólo justifican el
+camino común de acciones y la continuidad causal. No demuestran invariantes de
+ciclo de vida compartidas para esos contratos adicionales. La clasificación
+candidata de este RFC se mantiene abierta para una revisión posterior con casos
+de aceptación concretos, políticas de vigencia/revocación y requisitos de guardado.
+No se declara implementada iniciativa autónoma, obediencia o deliberación.
