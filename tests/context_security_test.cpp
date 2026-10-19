@@ -32,12 +32,20 @@ TEST(ContextSecurityTest, DifferentHiddenWorldsAndRepeatedProbesProduceIdentical
     std::array<VisibleFact, 8> left, right;
     EXPECT_EQ(ContextBuilder::build(av, {}, left), ContextBuilder::build(bv, {}, right));
     EXPECT_EQ(left, right);
+    const auto original = left;
     for (const auto id : {EntityId{}, hidden, EntityId{99}, EntityId{999}, EntityId{UINT64_MAX}}) {
         for (int attempt = 0; attempt < 16; ++attempt) {
             // Hidden, nonexistent, and invalid IDs return exactly the same envelope.
-            EXPECT_EQ(ContextBuilder::build(av, {1, id}, left), (ContextResult{1, ContextStatus::complete, 2, 0, 0}));
-            EXPECT_EQ(ContextBuilder::build(bv, {1, id}, right), (ContextResult{1, ContextStatus::complete, 2, 0, 0}));
-            EXPECT_EQ(left, right); // no buffer writes on empty selection
+            EXPECT_EQ(ContextBuilder::build(av, {1, id}, left), (ContextResult{1, ContextStatus::complete, 0, 0, 0}));
+            EXPECT_EQ(ContextBuilder::build(bv, {1, id}, right), (ContextResult{1, ContextStatus::complete, 0, 0, 0}));
+            EXPECT_EQ(left, original);
+            EXPECT_EQ(right, original); // no buffer writes on empty selection
+            for (const auto limits : {ContextLimits{0, 0, 0}, ContextLimits{1, 1, 59}}) {
+                EXPECT_EQ(ContextBuilder::build(av, {1, id, FactKind::relation}, left, limits), ContextResult{});
+                EXPECT_EQ(ContextBuilder::build(bv, {1, id, FactKind::relation}, right, limits), ContextResult{});
+                EXPECT_EQ(left, original);
+                EXPECT_EQ(right, original);
+            }
         }
     }
     for (const auto limit : {ContextLimits{0, 0, 0}, ContextLimits{1, 1, 59}, ContextLimits{8, 1, 59}}) {
@@ -132,10 +140,10 @@ TEST(ContextSecurityTest, EverySupportedKindAndMaximumScalarsHaveStableTypedRepr
         EXPECT_EQ(output[i].provenance(), FactProvenance::remembered);
 }
 
-TEST(ContextSecurityTest, CeilingBoundsAreEnforcedOnViewsLargerThanTheExaminationCeiling) {
+TEST(ContextSecurityTest, DirectedLookupReachesSubjectBeyondTheExaminationCeiling) {
     WorldState world;
     const auto actor = world.create_entity();
-    for (std::size_t i = 0; i < ContextLimits::examination_ceiling + 1; ++i) {
+    for (std::size_t i = 0; i < ContextLimits::examination_ceiling + 2; ++i) {
         const auto entity = world.create_entity();
         ASSERT_EQ(world.learn_fact(actor, {entity}), KnowledgeChange::applied);
     }
@@ -143,8 +151,18 @@ TEST(ContextSecurityTest, CeilingBoundsAreEnforcedOnViewsLargerThanTheExaminatio
     std::array<VisibleFact, 256> output;
     EXPECT_EQ(ContextBuilder::build(view, {}, output, {65536, 256, 1048576}),
               (ContextResult{1, ContextStatus::selection_limit, 257, 256, 15104}));
-    EXPECT_EQ(ContextBuilder::build(view, {1, EntityId{UINT64_MAX}}, output, {65536, 256, 1048576}),
+    EXPECT_EQ(ContextBuilder::build(view, {1, {}, FactKind::population}, output, {65536, 256, 1048576}),
               (ContextResult{1, ContextStatus::examination_limit, 65536, 0, 0}));
+    const auto original = output;
+    const EntityId last{ContextLimits::examination_ceiling + 3};
+    // The last subject follows 65,537 authorized records.
+    EXPECT_EQ(ContextBuilder::build(view, {1, last}, output),
+              (ContextResult{1, ContextStatus::complete, 1, 1, 59}));
+    EXPECT_EQ(output[0], view.facts().back());
+    EXPECT_TRUE(std::equal(output.begin() + 1, output.end(), original.begin() + 1));
+    const auto before_empty = output;
+    EXPECT_EQ(ContextBuilder::build(view, {1, EntityId{UINT64_MAX}}, output, {65536, 256, 1048576}), ContextResult{});
+    EXPECT_EQ(output, before_empty);
 }
 
 TEST(ContextSecurityTest, HistoricalFormatsKeepMemoriesAndNeverPersistGrantsOrContext) {

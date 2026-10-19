@@ -43,7 +43,7 @@ TEST_F(ContextBuilderTest, CompleteCanonicalSelectionMatchesEveryAuthorizedValue
 TEST_F(ContextBuilderTest, ExplicitFiltersAreConjunctiveAndPreserveCanonicalOrder) {
     EXPECT_EQ(ContextBuilder::build(view, {1, subject}, output).emitted, 4U);
     const auto result = ContextBuilder::build(view, {1, subject, FactKind::relation}, output);
-    EXPECT_EQ(result, (ContextResult{1, ContextStatus::complete, 5, 1, 59}));
+    EXPECT_EQ(result, (ContextResult{1, ContextStatus::complete, 4, 1, 59}));
     EXPECT_EQ(output[0].key, (FactKey{subject, FactKind::relation, RelationKind{9}, other}));
     EXPECT_FALSE(output[0].present);
     EXPECT_EQ(ContextBuilder::build(view, {1, {}, FactKind::existence}, output).emitted, 2U);
@@ -51,10 +51,90 @@ TEST_F(ContextBuilderTest, ExplicitFiltersAreConjunctiveAndPreserveCanonicalOrde
 }
 
 TEST_F(ContextBuilderTest, ExaminationBudgetBoundsWorkEvenWhenNothingMatches) {
-    const auto result = ContextBuilder::build(view, {1, EntityId{99}}, output, {2, 16, 4096});
+    const auto result = ContextBuilder::build(view, {1, {}, FactKind::population}, output, {2, 16, 4096});
     EXPECT_EQ(result, (ContextResult{1, ContextStatus::examination_limit, 2, 0, 0}));
     EXPECT_EQ(ContextBuilder::build(view, {}, output, {0, 16, 4096}).status, ContextStatus::examination_limit);
     EXPECT_EQ(ContextBuilder::build(view, {}, output, {5, 16, 4096}).status, ContextStatus::complete);
+}
+
+TEST_F(ContextBuilderTest, SubjectBudgetsCountOnlyItsRecordsIncludingKindMismatches) {
+    static_cast<void>(ContextBuilder::build(view, {}, output));
+    const auto original = output;
+    EXPECT_EQ(ContextBuilder::build(view, {1, subject, FactKind::relation}, output, {3, 0, 0}),
+              (ContextResult{1, ContextStatus::examination_limit, 3, 0, 0}));
+    EXPECT_EQ(output, original);
+    EXPECT_EQ(ContextBuilder::build(view, {1, subject}, output, {0, 16, 4096}),
+              (ContextResult{1, ContextStatus::examination_limit, 0, 0, 0}));
+    EXPECT_EQ(output, original);
+    EXPECT_EQ(ContextBuilder::build(view, {1, subject}, output, {4, 4, 236}),
+              (ContextResult{1, ContextStatus::complete, 4, 4, 236}));
+    EXPECT_EQ(output[4], original[4]); // adjacent subject is neither counted nor written
+    for (const auto status : {ContextStatus::selection_limit, ContextStatus::output_capacity,
+                              ContextStatus::content_limit}) {
+        output = original;
+        auto limits = ContextLimits{16, 16, 4096};
+        std::span<VisibleFact> storage{output};
+        if (status == ContextStatus::selection_limit) limits.max_selected = 1;
+        if (status == ContextStatus::output_capacity) storage = storage.first(1);
+        if (status == ContextStatus::content_limit) limits.max_content_bytes = 59;
+        EXPECT_EQ(ContextBuilder::build(view, {1, subject}, storage, limits),
+                  (ContextResult{1, status, 2, 1, 59}));
+        EXPECT_TRUE(std::equal(output.begin() + 1, output.end(), original.begin() + 1));
+    }
+}
+
+TEST_F(ContextBuilderTest, SubjectAndKindKeepRelationKindAndTargetOrder) {
+    for (const auto key : {FactKey{subject, FactKind::relation, RelationKind{9}, subject},
+                           FactKey{subject, FactKind::relation, RelationKind{2}, other}})
+        ASSERT_EQ(world.learn_fact(observer, key), KnowledgeChange::applied);
+    view = Visibility::project(world, observer);
+    const auto result = ContextBuilder::build(view, {1, subject, FactKind::relation}, output);
+    ASSERT_EQ(result, (ContextResult{1, ContextStatus::complete, 6, 3, 177}));
+    EXPECT_EQ(output[0].key, (FactKey{subject, FactKind::relation, RelationKind{2}, other}));
+    EXPECT_EQ(output[1].key, (FactKey{subject, FactKind::relation, RelationKind{9}, subject}));
+    EXPECT_EQ(output[2].key, (FactKey{subject, FactKind::relation, RelationKind{9}, other}));
+}
+
+TEST(ContextBuilderScaleTest, DefaultLimitsReachSubjectAfterMoreThan4096AuthorizedRecords) {
+    WorldState world;
+    const auto actor = world.create_entity();
+    for (std::size_t i = 0; i < 4097; ++i) {
+        const auto id = world.create_entity();
+        ASSERT_EQ(world.learn_fact(actor, {id}), KnowledgeChange::applied);
+    }
+    const auto target = world.create_entity();
+    for (const auto kind : {FactKind::existence, FactKind::definition, FactKind::containment})
+        ASSERT_EQ(world.learn_fact(actor, {target, kind}), KnowledgeChange::applied);
+    const auto following = world.create_entity();
+    ASSERT_EQ(world.learn_fact(actor, {following}), KnowledgeChange::applied);
+    const auto view = Visibility::project(world, actor);
+    std::array<VisibleFact, 4> output;
+    output.back().key.subject = EntityId{UINT64_MAX};
+    const auto tail = output.back();
+    EXPECT_EQ(ContextBuilder::build(view, {1, target}, output),
+              (ContextResult{1, ContextStatus::complete, 3, 3, 177}));
+    EXPECT_TRUE(std::equal(view.facts().begin() + 4097, view.facts().begin() + 4100, output.begin()));
+    EXPECT_EQ(output.back(), tail);
+}
+
+TEST(ContextBuilderScaleTest, SingleSubjectStillHonorsDefaultAndMaximumExaminationBudgets) {
+    WorldState world;
+    const auto actor = world.create_entity();
+    const auto target = world.create_entity();
+    ASSERT_EQ(world.learn_fact(actor, {target}), KnowledgeChange::applied);
+    for (std::uint64_t i = 1; i <= ContextLimits::examination_ceiling; ++i)
+        ASSERT_EQ(world.learn_fact(actor, {target, FactKind::relation, RelationKind{i}, target}), KnowledgeChange::applied);
+    const auto view = Visibility::project(world, actor);
+    std::array<VisibleFact, 1> output;
+    output[0].key.subject = EntityId{UINT64_MAX};
+    const auto original = output;
+    // No population matches: selection cannot mask exhaustion of examination.
+    const ContextRequest request{1, target, FactKind::population};
+    EXPECT_EQ(ContextBuilder::build(view, request, output),
+              (ContextResult{1, ContextStatus::examination_limit, 4096, 0, 0}));
+    EXPECT_EQ(ContextBuilder::build(view, request, output, {65536, 256, 1048576}),
+              (ContextResult{1, ContextStatus::examination_limit, 65536, 0, 0}));
+    EXPECT_EQ(output, original);
 }
 
 TEST_F(ContextBuilderTest, SelectionAndCapacityReportTruncationOnlyWhenAnotherMatchIsBlocked) {
@@ -80,7 +160,7 @@ TEST_F(ContextBuilderTest, ContentUsesLogicalFixedWidthsAndActualDefinitionBytes
     EXPECT_EQ(ContextBuilder::build(view, request, output, {16, 16, 59 + text_bytes - 1}).status,
               ContextStatus::content_limit);
     EXPECT_EQ(ContextBuilder::build(view, request, output, {16, 16, 59 + text_bytes}),
-              (ContextResult{1, ContextStatus::complete, 5, 1, 59 + text_bytes}));
+              (ContextResult{1, ContextStatus::complete, 4, 1, 59 + text_bytes}));
     EXPECT_EQ(output[0].definition_id(), "example.structural:unit");
     EXPECT_EQ(output[0].provenance(), FactProvenance::temporary_grant);
     EXPECT_EQ(ContextBuilder::build(view, {}, output, {16, 16, 0}).status, ContextStatus::content_limit);
@@ -116,12 +196,16 @@ TEST_F(ContextBuilderTest, RepeatedBuildsAreIdenticalAndDoNotMutateWorldKnowledg
     RandomStreams random{123};
     static_cast<void>(random.stream(7).next());
     const auto before = Persistence::capture(world, random);
-    const auto expected = ContextBuilder::build(view, {}, output);
-    const auto facts = output;
-    for (int i = 0; i < 100; ++i) {
-        EXPECT_EQ(ContextBuilder::build(view, {}, output), expected);
-        EXPECT_EQ(output, facts);
-        EXPECT_EQ(Persistence::capture(world, random), before);
+    const auto original_view = view;
+    for (const auto request : {ContextRequest{}, ContextRequest{1, subject, FactKind::relation}}) {
+        const auto expected = ContextBuilder::build(view, request, output);
+        const auto facts = output;
+        for (int i = 0; i < 100; ++i) {
+            EXPECT_EQ(ContextBuilder::build(view, request, output), expected);
+            EXPECT_EQ(view, original_view);
+            EXPECT_EQ(output, facts);
+            EXPECT_EQ(Persistence::capture(world, random), before);
+        }
     }
 }
 } // namespace

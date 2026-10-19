@@ -46,6 +46,9 @@ enum class ContextStatus : std::uint8_t {
 
 /// Only output.first(emitted) belongs to this call. Tail remains unchanged.
 /// Complete is relative to the filtered view, never proof of world completeness.
+/// Examined counts records visited for selection before the kind filter, including
+/// only the requested subject's records when specified, otherwise the view prefix.
+/// Binary-search comparisons and records outside that subject do not count.
 /// An examined matching record blocked by output limits is included in examined.
 struct ContextResult final {
     std::uint32_t contract_version{context_contract_version};

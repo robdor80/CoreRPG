@@ -29,10 +29,19 @@ C++20 tipado, sin nuevo serializador. ContextBuilder recibe exclusivamente una
 ObserverView const, solicitud de versión/filtros exactos por sujeto y tipo,
 almacenamiento VisibleFact del caller y límites explícitos. No recibe WorldState,
 Inspector, snapshot, catálogo, resultados de acciones, RNG ni callbacks.
-Se examina un prefijo canónico de facts(), filtrando por igualdad; se emiten
-copias en orden FactKey. No hay ranking semántico, búsqueda de texto ni inferencia.
+Con sujeto, lower_bound sobre el orden canónico de facts() localiza su primer
+hecho y sólo se recorre su tramo contiguo; sin sujeto se conserva el prefijo de la
+vista. El filtro adicional por FactKind sigue combinado con AND; se emiten copias
+en orden FactKey. No hay ranking semántico, búsqueda de texto ni inferencia.
 Un filtro por ID no conocido devuelve el mismo vacío para oculto/inválido/ausente.
 No se generan registros «desconocidos», IDs adicionales ni metadatos globales.
+
+examined cuenta los registros visitados para selección antes del filtro por tipo:
+sólo hechos del sujeto solicitado, o del prefijo de la vista si no hay sujeto.
+Incluye el registro coincidente bloqueado por selección/capacidad/contenido; excluye
+comparaciones de búsqueda binaria y hechos de otros sujetos. Un sujeto sin hechos
+autorizados devuelve complete con contadores cero incluso con presupuestos cero,
+sin alterar el buffer, igual para oculto/inválido/inexistente.
 
 Salida versionada: estado, examinados, emitidos y coste de contenido; sólo el
 prefijo emitido del buffer pertenece a esta llamada. Las copias retienen su texto
@@ -98,7 +107,9 @@ Cinco trabajos CI completos son puerta de auditoría, no aprobación de fusión.
 Visibility ya copia todos los K recuerdos y procesa G grants; los inserts en
 vector pueden mover O(G*(K+G)) registros y reservan O(K+G), además del texto de
 definiciones actuales concedidas. ContextBuilder no acota ese coste previo.
-Selección O(min(K+G, presupuesto de examen)), O(1) scratch; cada copia de texto
+Sea N el tamaño de facts() y K_s los hechos del sujeto: selección dirigida
+O(log N + K_s), acotada a O(log N + min(K_s, max_examined)). Sin sujeto,
+O(min(N, max_examined)) como antes. O(1) scratch; cada copia de texto
 es ownership compartido sin copiar caracteres. El Host limita proyección/grants
 en su frontera privilegiada. Se medirán separadamente proyección y selección;
 sólo evidencia de necesidad justificará una API incremental posterior.
@@ -109,13 +120,13 @@ memoria, tokens universales, versión de snapshot o integración UE5/Godot/Andro
 ## Evidencia de implementación para auditoría
 
 El contrato versión 1 se materializa en `context_builder.hpp` y su algoritmo sólo
-incluye ese header y type_traits: ninguna consulta privilegiada ni callback.
+incluye ese header, algorithm y type_traits: ninguna consulta privilegiada ni callback.
 Salida en almacenamiento del caller, sin asignaciones, con máximos 65.536/256/1 MiB.
 La falta de scratch dinámico permite límite fijo cero; no se inventa infraestructura
 ni parámetro para memoria auxiliar inexistente. No hubo desviación de D1–D4.
 
-Pruebas locales Linux x86_64: 428/428 con ContentJson, 319/319 Core-only Release y
-319/319 ASan/UBSan; biblioteca sin tests/JSON compilada sin terceros. Cuatro puntos
+Primera auditoría (HEAD eb8ceca), pruebas locales Linux x86_64: 428/428 con
+ContentJson, 319/319 Core-only Release y 319/319 ASan/UBSan; biblioteca sin tests/JSON compilada sin terceros. Cuatro puntos
 de asignación de proyección inyectados en esta STL; selección funciona con new
 fallando. Se comparan mundos ocultos distintos/vistas iguales, restauraciones,
 observadores, permisos/grants, extremos, capacidades y máximos. Medidas separadas
@@ -125,3 +136,13 @@ Ver [acta 4.12](../phases/4.12-context-builder-ai.md) para métodos/limitaciones
 [frontera de IA](../ai-host-boundary.md) para responsabilidad del Host. El estado
 final de CI Windows/Linux se verifica por SHA en la PR Draft; no hay validación
 NDK/ARM64 ni hardware Android, puente de motor o proveedor real en esta fase.
+
+Corrección de primera auditoría: búsqueda dirigida sin cambios de firmas, límites,
+VisibleFact/ObserverView ni persistencia. Regresiones tras 4.097 y 65.537 hechos
+previos; 65.537 hechos de un solo sujeto agotan los presupuestos de examen; filtros,
+orden, buffers, IDs no disponibles, snapshots/RNG y selección con new fallando.
+Validación local de la corrección: 433/433 con ContentJson, 324/324 Core-only
+Release y 324/324 ASan/UBSan sin informes. Medición dirigida de 65.538 registros:
+1 examinado/1 emitido/complete. Detalle en el acta 4.12; CI del nuevo SHA en PR #10.
+Las garantías de no ampliación de información, noexcept, cero asignaciones,
+no mutación/RNG, procedencia y ausencias conocidas permanecen intactas.

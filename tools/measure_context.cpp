@@ -12,8 +12,8 @@ int main() {
     using namespace corerpg;
     using Clock = std::chrono::steady_clock;
     std::uint64_t checksum = 0;
-    std::cout << "K,projection_median_us,prefix_selection_median_us,filtered_selection_median_us,visible_record_bytes\n";
-    for (const std::size_t count : {128U, 4096U, 65536U}) {
+    std::cout << "K,projection_median_us,prefix_selection_median_us,directed_selection_median_us,visible_record_bytes\n";
+    for (const std::size_t count : {128U, 4096U, 65536U, 65538U}) {
         WorldState world;
         const auto actor = world.create_entity();
         for (std::size_t i = 0; i < count; ++i) {
@@ -36,7 +36,7 @@ int main() {
             end = Clock::now();
             filtered.push_back(std::chrono::duration<double, std::micro>(end - start).count());
             checksum += first.examined + last.examined + first.emitted + last.emitted;
-            if (first.emitted != 128 || first.examined > 129 || last.examined > 4096) return 2;
+            if (first.emitted != 128 || first.examined > 129 || last.examined != 1 || last.emitted != 1 || last.status != ContextStatus::complete) return 2;
         }
         for (auto* series : {&projection, &prefix, &filtered}) std::sort(series->begin(), series->end());
         std::cout << count << ',' << projection[25] << ',' << prefix[25] << ',' << filtered[25]

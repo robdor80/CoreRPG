@@ -744,9 +744,14 @@ Integración nativa y modelos de dominio siguen pendientes.
 API pública en `context_builder.hpp`. Recibe exclusivamente ObserverView const,
 solicitud versionada con filtros exactos de sujeto/tipo, span de salida del caller
 y presupuestos. No conoce WorldState, Inspector, snapshots, catálogos, resultados
-privilegiados ni RNG. Recorre facts() en orden FactKey y copia sólo coincidencias;
-no deriva campos nuevos ni interpreta lenguaje. Resultado escalar con versión,
-estado, examinados, emitidos y bytes lógicos. El Host conserva el buffer y entrega
+privilegiados ni RNG. Con sujeto, lower_bound localiza su tramo en facts() y sólo
+examina sus hechos; sin sujeto recorre el prefijo de la vista como antes. Copia
+sólo coincidencias en orden FactKey; no deriva campos nuevos ni interpreta lenguaje. Resultado escalar con versión,
+estado, examinados, emitidos y bytes lógicos. examined cuenta registros del tramo
+antes del filtro por tipo, incluyendo coincidencias bloqueadas por límites de
+salida; excluye comparaciones de búsqueda y hechos de otros sujetos. Coste dirigido
+O(log N + min(K_s, max_examined)), N registros de vista y K_s hechos del sujeto.
+El Host conserva el buffer y entrega
 sólo el prefijo emitido, nunca la cola residual. Sus VisibleFact retienen texto
 inmutable aunque muera la vista; ninguna copia se refresca o revoca automáticamente.
 

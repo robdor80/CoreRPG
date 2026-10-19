@@ -1,5 +1,6 @@
 #include <corerpg/context_builder.hpp>
 
+#include <algorithm>
 #include <type_traits>
 
 namespace corerpg {
@@ -35,14 +36,24 @@ ContextResult ContextBuilder::build(const ObserverView& view, const ContextReque
         result.status = ContextStatus::invalid_limits;
         return result;
     }
-    for (const auto& fact : view.facts()) {
+    const auto facts = view.facts();
+    // FactKey's canonical order groups all records of a subject contiguously.
+    // Search comparisons locate the range; only its records consume examination.
+    const auto first = request.subject
+        ? std::lower_bound(facts.begin(), facts.end(), *request.subject,
+                           [](const VisibleFact& fact, EntityId subject) noexcept {
+                               return fact.key.subject < subject;
+                           })
+        : facts.begin();
+    for (auto it = first; it != facts.end(); ++it) {
+        const auto& fact = *it;
+        if (request.subject && fact.key.subject != *request.subject) break;
         if (result.examined == limits.max_examined) {
             result.status = ContextStatus::examination_limit;
             return result;
         }
         ++result.examined;
-        if ((request.subject && fact.key.subject != *request.subject) ||
-            (request.kind && fact.key.kind != *request.kind)) continue;
+        if (request.kind && fact.key.kind != *request.kind) continue;
         if (result.emitted == limits.max_selected) {
             result.status = ContextStatus::selection_limit;
             return result;

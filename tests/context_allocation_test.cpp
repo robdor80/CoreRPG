@@ -108,6 +108,58 @@ TEST(ContextAllocationTest, SelectionNeverAllocatesEvenWhenReplacingOwnedTextOrR
     EXPECT_EQ(Persistence::capture(world, random), before);
 }
 
+TEST(ContextAllocationTest, DirectedLookupNeverAllocatesOrMutatesViewWorldOrRng) {
+    WorldState world;
+    RandomStreams random{77};
+    static_cast<void>(random.stream(7).next());
+    const auto actor = world.create_entity();
+    for (std::size_t i = 0; i < 4097; ++i) {
+        const auto id = world.create_entity();
+        ASSERT_EQ(world.learn_fact(actor, {id}), KnowledgeChange::applied);
+    }
+    const auto target = world.create_entity();
+    const auto hidden = world.create_entity();
+    auto catalog = corerpg_test::structural_catalog();
+    ASSERT_EQ(world.bind_definition(target, *catalog.catalog(), *DefinitionId::parse("example.structural:unit")), DefinitionBindingChange::applied);
+    const std::array grants{FactKey{target}, FactKey{target, FactKind::definition}};
+    const auto view = Visibility::project(world, actor, grants);
+    const auto original_view = view;
+    const auto before = Persistence::capture(world, random);
+    std::array<VisibleFact, 4> output;
+    ContextResult complete, typed, truncated, examined, content;
+    std::array<ContextResult, 3> empty;
+    bool buffers_unchanged = true;
+    {
+        AllocationFailure fail{0};
+        complete = ContextBuilder::build(view, {1, target}, output);
+        complete = ContextBuilder::build(view, {1, target}, output); // replace owned text
+        typed = ContextBuilder::build(view, {1, target, FactKind::definition}, output);
+        truncated = ContextBuilder::build(view, {1, target}, std::span{output}.first(1));
+        examined = ContextBuilder::build(view, {1, target}, output, {1, 4, 4096});
+        content = ContextBuilder::build(view, {1, target}, output, {4, 4, 59});
+        const auto original = output;
+        const std::array ids{EntityId{}, hidden, EntityId{UINT64_MAX}};
+        for (std::size_t i = 0; i < ids.size(); ++i) {
+            empty[i] = ContextBuilder::build(view, {1, ids[i]}, output);
+            buffers_unchanged = buffers_unchanged && output == original;
+        }
+    }
+    EXPECT_FALSE(allocation_failed);
+    EXPECT_EQ(complete.status, ContextStatus::complete);
+    EXPECT_EQ(complete.examined, 2U);
+    EXPECT_EQ(complete.emitted, 2U);
+    EXPECT_EQ(typed.examined, 2U);
+    EXPECT_EQ(typed.emitted, 1U);
+    EXPECT_EQ(truncated.status, ContextStatus::output_capacity);
+    EXPECT_EQ(examined.status, ContextStatus::examination_limit);
+    EXPECT_EQ(content.status, ContextStatus::content_limit);
+    for (const auto& result : empty) EXPECT_EQ(result, ContextResult{});
+    EXPECT_TRUE(buffers_unchanged);
+    EXPECT_EQ(output[1].definition_id(), "example.structural:unit");
+    EXPECT_EQ(view, original_view);
+    EXPECT_EQ(Persistence::capture(world, random), before);
+}
+
 TEST(ContextAllocationTest, EveryProjectionAllocationFailurePreservesPublishedContextAndWorld) {
     WorldState world;
     RandomStreams random{77};
