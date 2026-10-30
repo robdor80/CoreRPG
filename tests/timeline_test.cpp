@@ -143,4 +143,23 @@ TEST_F(TimelineTest, LegacyPersistenceStillRejectsTimelineArchiveAndKeepsWireFor
     EXPECT_EQ(Persistence::deserialize(save()).status,PersistenceStatus::invalid_magic);
     EXPECT_EQ(CampaignPersistence::deserialize(legacy.bytes).status,CampaignArchiveStatus::invalid_magic);
 }
+TEST(TimelineWire, IndependentLittleEndianGoldenArchive) {
+    // Independently constructed with Python struct.pack and bitwise CRC32C.
+    constexpr std::string_view hex=
+        "4352504754494d45010000003c00000000000000000000000000000001000000000000000100000000000000"
+        "43525047534156450100000001000000010000000000000001000000000000002a00000000000000000000000000000000000000000000002c2db240"
+        "010000000000000007000000000000000000000000000000010000000000000005000000000000000900000000000000"
+        "01000000000000000600000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000b30f2cac";
+    std::vector<std::uint8_t> golden;
+    const auto digit=[](char c) { return c<='9' ? c-'0' : c-'a'+10; };
+    for(std::size_t i=0;i<hex.size();i+=2) golden.push_back(static_cast<std::uint8_t>(digit(hex[i])*16+digit(hex[i+1])));
+    WorldState world; RandomStreams rng{42}; Timeline time; const auto actor=world.create_entity();
+    ASSERT_EQ(time.schedule(world,{1,7,0,actor,StreamRollAction{9,1,6}}),TimelineStatus::completed);
+    const auto encoded=CampaignPersistence::serialize(CampaignPersistence::capture(world,rng,time));
+    ASSERT_EQ(encoded.status,CampaignArchiveStatus::success);
+    EXPECT_EQ(encoded.bytes,golden);
+    const auto decoded=CampaignPersistence::deserialize(golden);
+    ASSERT_EQ(decoded.status,CampaignArchiveStatus::success);
+    EXPECT_EQ(CampaignPersistence::serialize(*decoded.snapshot).bytes,golden);
+}
 } // namespace

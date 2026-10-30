@@ -135,5 +135,20 @@ TEST(TimelineAllocation, ScheduleFailurePreservesIdempotencyLedger) {
     EXPECT_EQ(before,CampaignPersistence::serialize(CampaignPersistence::capture(world,rng,time)).bytes);
     EXPECT_EQ(time.schedule(world,{1,1,0,actor,StreamRollAction{0,0,10}}),TimelineStatus::completed);
 }
+TEST(TimelineAllocation, CompletedPrefixSurvivesFailureAndResumesWithoutReplay) {
+    WorldState world; RandomStreams rng{42}; Timeline time; const auto actor=world.create_entity();
+    ASSERT_EQ(time.schedule(world,{1,10,0,actor,RemoveContainmentAction{actor}}),TimelineStatus::completed);
+    ASSERT_EQ(time.schedule(world,{2,20,1,actor,StreamRollAction{17,0,100}}),TimelineStatus::completed);
+    TimelineResult result;
+    { AllocationFailure failure{0}; result=time.advance(world,rng,100); }
+    EXPECT_EQ(result.status,TimelineStatus::allocation_failure); EXPECT_EQ(result.processed,1U);
+    EXPECT_EQ(time.now(),10U); EXPECT_EQ(time.records()[0].state,TimedState::no_change);
+    EXPECT_EQ(time.records()[1].state,TimedState::pending); EXPECT_EQ(rng.stream_count(),0U);
+    const auto archive=CampaignPersistence::serialize(CampaignPersistence::capture(world,rng,time));
+    WorldState restored; RandomStreams random{0}; Timeline recovered;
+    ASSERT_EQ(CampaignPersistence::load(archive.bytes,restored,random,recovered),CampaignArchiveStatus::success);
+    EXPECT_EQ(recovered.advance(restored,random,100).processed,1U);
+    EXPECT_EQ(recovered.advance(restored,random,100).processed,0U);
+}
 } // namespace
 
