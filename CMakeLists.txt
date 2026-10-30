@@ -25,6 +25,8 @@ add_library(CoreRPG::CoreRPG ALIAS CoreRPG)
 target_sources(
     CoreRPG
     PRIVATE
+        src/timeline.cpp
+        src/campaign_persistence.cpp
         src/action.cpp
         src/content_compatibility.cpp
         src/content_catalog.cpp
@@ -51,6 +53,8 @@ target_sources(
         FILE_SET HEADERS
         BASE_DIRS include
         FILES
+            include/corerpg/timeline.hpp
+            include/corerpg/campaign_persistence.hpp
             include/corerpg/action.hpp
             include/corerpg/content_compatibility.hpp
             include/corerpg/content_catalog.hpp

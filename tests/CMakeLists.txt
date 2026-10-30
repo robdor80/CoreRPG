@@ -15,6 +15,7 @@ FetchContent_MakeAvailable(googletest)
 
 add_executable(
     corerpg_tests
+    timeline_test.cpp
     action_test.cpp
     action_persistence_test.cpp
     action_determinism_test.cpp
@@ -69,6 +70,11 @@ endif()
 
 include(GoogleTest)
 gtest_discover_tests(corerpg_tests)
+
+add_executable(corerpg_timeline_allocation_tests timeline_allocation_test.cpp)
+target_link_libraries(corerpg_timeline_allocation_tests PRIVATE CoreRPG::CoreRPG GTest::gtest_main)
+target_compile_features(corerpg_timeline_allocation_tests PRIVATE cxx_std_20)
+gtest_discover_tests(corerpg_timeline_allocation_tests)
 
 # Keep allocation failure instrumentation isolated from all other test executables.
 add_executable(corerpg_world_state_allocation_tests world_state_allocation_test.cpp)
