@@ -16,6 +16,11 @@ struct CampaignArchiveSnapshot final {
 struct CampaignArchiveBytes final {
     CampaignArchiveStatus status{CampaignArchiveStatus::success};
     std::vector<std::uint8_t> bytes = std::vector<std::uint8_t>(0);
+    CampaignArchiveBytes() = default;
+    CampaignArchiveBytes(const CampaignArchiveBytes&) = default;
+    CampaignArchiveBytes& operator=(const CampaignArchiveBytes&) = default;
+    CampaignArchiveBytes& operator=(CampaignArchiveBytes&&) = default;
+    CampaignArchiveBytes(CampaignArchiveBytes&& other) : status{other.status} { bytes.swap(other.bytes); }
 };
 struct DecodedCampaignArchive final {
     CampaignArchiveStatus status{CampaignArchiveStatus::success};

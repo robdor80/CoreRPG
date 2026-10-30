@@ -26,6 +26,13 @@ struct TimedRecord final {
 struct TimelineSnapshot final {
     std::uint64_t now{};
     std::vector<TimedRecord> records = std::vector<TimedRecord>(0);
+    TimelineSnapshot() = default;
+    TimelineSnapshot(const TimelineSnapshot&) = default;
+    TimelineSnapshot& operator=(const TimelineSnapshot&) = default;
+    TimelineSnapshot& operator=(TimelineSnapshot&&) = default;
+    // MSVC checked-iterator vector moves may allocate in a noexcept constructor.
+    // Use the throwing count constructor above, then a non-allocating swap.
+    TimelineSnapshot(TimelineSnapshot&& other) : now{other.now} { records.swap(other.records); }
 };
 enum class TimelineStatus : std::uint8_t {
     completed, no_change, invalid_request, key_conflict, limit_exceeded,
