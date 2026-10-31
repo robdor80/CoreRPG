@@ -84,6 +84,7 @@ public:
     [[nodiscard]] std::uint64_t frontier() const noexcept { return frontier_; }
     [[nodiscard]] HistoryCampaignId campaign_id() const noexcept { return campaign_; }
     [[nodiscard]] const std::vector<HistoryDescriptor>& segments() const noexcept { return segments_; }
+    [[nodiscard]] const std::vector<HistoryCountRule>& count_rules() const noexcept { return rules_; }
     [[nodiscard]] const std::filesystem::path& directory() const noexcept { return directory_; }
     [[nodiscard]] HistoryLocation locate(EntityId, std::uint64_t issued) const noexcept;
     [[nodiscard]] std::uint64_t archived_count() const noexcept;
