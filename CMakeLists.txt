@@ -26,6 +26,7 @@ target_sources(
     CoreRPG
     PRIVATE
         src/timeline.cpp
+        src/history.cpp
         src/campaign_persistence.cpp
         src/action.cpp
         src/content_compatibility.cpp
@@ -54,6 +55,7 @@ target_sources(
         BASE_DIRS include
         FILES
             include/corerpg/timeline.hpp
+            include/corerpg/history.hpp
             include/corerpg/campaign_persistence.hpp
             include/corerpg/action.hpp
             include/corerpg/content_compatibility.hpp

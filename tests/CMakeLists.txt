@@ -16,6 +16,7 @@ FetchContent_MakeAvailable(googletest)
 add_executable(
     corerpg_tests
     timeline_test.cpp
+    history_test.cpp
     action_test.cpp
     action_persistence_test.cpp
     action_determinism_test.cpp
@@ -70,6 +71,19 @@ endif()
 
 include(GoogleTest)
 gtest_discover_tests(corerpg_tests)
+
+add_executable(corerpg_history_process history_process.cpp)
+target_link_libraries(corerpg_history_process PRIVATE CoreRPG::CoreRPG)
+target_compile_features(corerpg_history_process PRIVATE cxx_std_20)
+foreach(fault RANGE 0 6)
+    # Each configure gets a fresh isolated destination; existing saves are never deleted.
+    string(TIMESTAMP history_run "%Y%m%d%H%M%S")
+    set(history_path "${CMAKE_CURRENT_BINARY_DIR}/history-process-${history_run}-${fault}")
+    add_test(NAME HistoryProcess.write_${fault} COMMAND corerpg_history_process write "${history_path}" ${fault})
+    set_tests_properties(HistoryProcess.write_${fault} PROPERTIES FIXTURES_SETUP history_${fault})
+    add_test(NAME HistoryProcess.read_${fault} COMMAND corerpg_history_process read "${history_path}" ${fault})
+    set_tests_properties(HistoryProcess.read_${fault} PROPERTIES FIXTURES_REQUIRED history_${fault})
+endforeach()
 
 add_executable(corerpg_timeline_allocation_tests timeline_allocation_test.cpp)
 target_link_libraries(corerpg_timeline_allocation_tests PRIVATE CoreRPG::CoreRPG GTest::gtest_main)

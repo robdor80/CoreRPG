@@ -61,6 +61,7 @@ public:
                                         std::uint64_t revision) noexcept;
 private:
     friend class CampaignPersistence;
+    friend class HistoryPersistence;
     TimelineSnapshot state_;
 };
 } // namespace corerpg
