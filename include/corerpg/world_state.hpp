@@ -134,6 +134,7 @@ class WorldState final {
 
   private:
     friend class Persistence;
+    friend class HistoryPersistence;
     friend class Inspector;
     /// Private validated staging path; may throw without touching an existing world.
     explicit WorldState(const CampaignSnapshot& snapshot, const ContentCatalog* catalog);
