@@ -52,6 +52,19 @@ TEST(HistoryHash,KnownAnswers) {
     const std::string abc="abc";EXPECT_EQ(str(HistoryPersistence::hash({reinterpret_cast<const std::uint8_t*>(abc.data()),abc.size()})),"ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad");
     std::vector<std::uint8_t> million(1'000'000,'a');EXPECT_EQ(str(HistoryPersistence::hash(million)),"cdc76e5c9914fb9281a1c7e284d73e67f1809a48a497200e046d39ccc7112cd0");
 }
+TEST(HistoryBoundary,UninitializedArchiveCannotPublishReadOrRetire) {
+    HistoryArchive archive;WorldState world;RandomStreams random{1};Timeline time;
+    ASSERT_TRUE(world.create_entity().is_valid());ASSERT_EQ(time.advance(world,random,100).status,TimelineStatus::completed);
+    const auto original=CampaignPersistence::serialize(CampaignPersistence::capture(world,random,time)).bytes;
+    const bool had_root=std::filesystem::exists("CURRENT"),had_lock=std::filesystem::exists("writer.lock");
+    EXPECT_EQ(HistoryPersistence::validate_active(archive,CampaignPersistence::capture(world,random,time)),HistoryStatus::invalid_request);
+    EXPECT_EQ(HistoryPersistence::publish(archive,world,random,time),HistoryStatus::invalid_request);
+    EXPECT_EQ(HistoryPersistence::query(archive,{},1).status,HistoryStatus::invalid_request);
+    const std::array ids{HistorySelection{EntityId{1},0,1}};
+    EXPECT_EQ(HistoryPersistence::consolidate(archive,world,random,time,ids,1),HistoryStatus::invalid_request);
+    EXPECT_EQ(CampaignPersistence::serialize(CampaignPersistence::capture(world,random,time)).bytes,original);
+    EXPECT_EQ(std::filesystem::exists("CURRENT"),had_root);EXPECT_EQ(std::filesystem::exists("writer.lock"),had_lock);
+}
 TEST_F(HistoryTest,OriginalFactsAndCrossReferencesSurviveWithoutReactivation) {
     auto before=snapshot();ASSERT_EQ(migrate(),HistoryStatus::success);ASSERT_EQ(consolidate(),HistoryStatus::success);
     EXPECT_TRUE(world.contains(EntityId{3}));EXPECT_EQ(world.entity_count(),6);EXPECT_EQ(archive.resident_count(world),4);EXPECT_EQ(archive.count(1,EntityId{2}),2);

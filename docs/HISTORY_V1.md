@@ -23,6 +23,9 @@ Consumers must opt in throughout their persistence boundary. Saving the active
 projection alone as a full campaign would omit history; a consumer must reject
 that operation and route the new mode through HistoryPersistence. No old reader
 is silently upgraded to a segment reader. Old readers reject the new magic.
+An archive must first be initialized by migrate/recover. Publication, validation,
+retirement and queries on a default-constructed archive return invalid_request
+without creating files or reporting an empty historical result.
 
 Each mutation is staged by the consumer as before. At publication Core rejects
 any definitions, outgoing relations, containment or knowledge reintroduced for

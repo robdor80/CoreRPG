@@ -238,6 +238,7 @@ void HistoryPersistence::reduce(HistoryArchive& a,const Segment& s) {
 }
 
 HistoryStatus HistoryPersistence::validate_active(const HistoryArchive& a,const CampaignArchiveSnapshot& snapshot,HistoryLimits limits) {
+    if(!a.generation_ || a.directory_.empty() || zero(a.campaign_))return HistoryStatus::invalid_request;
     const auto& c=snapshot.campaign;
     if(CampaignPersistence::validate(snapshot,limits.records)!=CampaignArchiveStatus::success || c.last_entity_id<a.issued_ || c.revision<a.revision_ || snapshot.timeline.now<a.now_)return HistoryStatus::invalid_projection;
     auto archived=[&](EntityId id){return a.locate(id,c.last_entity_id)==HistoryLocation::archived;};
@@ -347,6 +348,7 @@ HistoryStatus HistoryPersistence::recover(const std::filesystem::path& path,Hist
 HistoryPage HistoryPersistence::query(const HistoryArchive& a,EntityId after,U limit,HistoryLimits limits,HistoryFault fault) {
     HistoryPage page;page.next=after;
     try {
+        require(a.generation_ && !a.directory_.empty() && !zero(a.campaign_),HistoryStatus::invalid_request);
         require(limit && limit<=limits.max_page,HistoryStatus::invalid_request);
         // Select only limit+1 IDs using the small manifest range index. Segment creation
         // order may differ from identity order; the public cursor is always global ID.
