@@ -296,7 +296,7 @@ HistoryStatus HistoryPersistence::migrate(const std::filesystem::path& path,Hist
     }catch(const Invalid& e){return e.status;}catch(const std::filesystem::filesystem_error&){return HistoryStatus::io_error;}
 }
 
-HistoryStatus HistoryPersistence::consolidate(HistoryArchive& a,WorldState& w,RandomStreams& r,Timeline& t,std::span<const HistorySelection> ids,U frontier,const ContentCatalog* catalog,HistoryLimits limits,HistoryFault fault) {
+HistoryStatus HistoryPersistence::consolidate(HistoryArchive& a,WorldState& w,RandomStreams& r,Timeline& t,std::span<const HistorySelection> ids,U frontier,const ContentCatalog* catalog,HistoryLimits limits,HistoryFault fault,const std::function<bool(const CampaignArchiveSnapshot&)>& validate_projection) {
     try {
         require(!ids.empty() && ids.size()<=limits.max_selected && frontier>=a.frontier_ && frontier<=t.now(),HistoryStatus::invalid_request);
         auto original=CampaignPersistence::capture(w,r,t);auto status=validate_active(a,original,limits);require(status==HistoryStatus::success,status);
@@ -320,6 +320,7 @@ HistoryStatus HistoryPersistence::consolidate(HistoryArchive& a,WorldState& w,Ra
         // Stage every potentially allocating restore BEFORE durable publication.
         WorldState nw;RandomStreams nr{0};Timeline nt;
         require(CampaignPersistence::restore(original,nw,nr,nt,limits.records,catalog)==CampaignArchiveStatus::success,HistoryStatus::invalid_projection);
+        require(!validate_projection || validate_projection(original),HistoryStatus::invalid_projection);
         status=commit(a,original,&segment,limits,fault);if(status!=HistoryStatus::success)return status;
         w=std::move(nw);r=std::move(nr);t.state_.records.swap(nt.state_.records);std::swap(t.state_.now,nt.state_.now);return HistoryStatus::success;
     }catch(const Invalid& e){return e.status;}

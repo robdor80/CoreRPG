@@ -91,6 +91,8 @@ These are local-filesystem guarantees; a filesystem/device must honor those
 primitives. Network filesystems are not certified by these tests.
 
 All allocations and restores needed for in-memory publication precede CURRENT.
+An optional consumer projection validator runs on the staged checkpoint before
+any publication, so domain validation can reject a proposed retirement atomically.
 Before publication failures preserve live destinations and the prior root.
 An I/O error during pointer publication can have uncertain commit outcome:
 **recover before retrying or using the old projection**. The injected

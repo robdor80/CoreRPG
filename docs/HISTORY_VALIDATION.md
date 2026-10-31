@@ -16,8 +16,8 @@ cmake --build C:/F04/HistoryBuild/core --config Release --parallel 4
 ctest --test-dir C:/F04/HistoryBuild/core -C Release --output-on-failure -j 4 --output-junit C:/F04/HistoryBuild/core-tests.xml
 ```
 
-481 registered tests: **477 passed, 4 existing platform-dependent skips, 0 failed**.
-The additions are 16 history/hash tests and 14 process-boundary tests. The latter
+482 registered tests: **478 passed, 4 existing platform-dependent skips, 0 failed**.
+The additions are 17 history/hash tests and 14 process-boundary tests. The latter
 write a distinct directory per invocation, terminate without normal C++ cleanup,
 then validate from another executable process. They cover no failure and all six
 publication boundaries. Existing Core allocation-failure tests still pass.

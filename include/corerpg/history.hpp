@@ -122,7 +122,8 @@ public:
     /// loss: returns injected_failure with old memory; recover before any further write.
     [[nodiscard]] static HistoryStatus consolidate(HistoryArchive&,WorldState&,RandomStreams&,
         Timeline&,std::span<const HistorySelection>,std::uint64_t frontier,
-        const ContentCatalog* = nullptr,HistoryLimits = {},HistoryFault = {});
+        const ContentCatalog* = nullptr,HistoryLimits = {},HistoryFault = {},
+        const std::function<bool(const CampaignArchiveSnapshot&)>& validate_projection = {});
     [[nodiscard]] static HistoryStatus publish(HistoryArchive&,const WorldState&,
         const RandomStreams&,const Timeline&,HistoryLimits = {},HistoryFault = {});
     /// Complete validation streams segments one at a time and verifies reductions.

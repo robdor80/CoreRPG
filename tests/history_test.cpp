@@ -146,4 +146,10 @@ TEST_F(HistoryTest,ArchivedContainerAndPendingActionsCannotBecomeLive) {
     ASSERT_EQ(world.place_entity(EntityId{6},EntityId{3}),ContainmentChange::applied);
     EXPECT_EQ(HistoryPersistence::publish(archive,world,random,time),HistoryStatus::invalid_projection);
 }
+TEST_F(HistoryTest,ConsumerProjectionValidationPrecedesAnyPublication) {
+    ASSERT_EQ(migrate(),HistoryStatus::success);const auto before=bytes();const std::array ids{HistorySelection{EntityId{3},0,20}};
+    EXPECT_EQ(HistoryPersistence::consolidate(archive,world,random,time,ids,90,catalog.catalog(),{},HistoryFault::none,
+        [](const auto&){return false;}),HistoryStatus::invalid_projection);
+    EXPECT_EQ(bytes(),before);EXPECT_EQ(archive.generation(),1);ASSERT_EQ(recover(),HistoryStatus::success);EXPECT_EQ(bytes(),before);
+}
 }
